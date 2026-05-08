@@ -78,6 +78,23 @@ textarea{resize:vertical;min-height:58px}
 .mo table th{background:var(--pkl);padding:5px 8px;font-size:11px;text-align:left}
 .mo table td{padding:4px 8px;border-bottom:1px solid #f5e0ec}
 .mobt{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+/* CALCULATOR */
+.calc-wrap{position:fixed;bottom:80px;right:16px;z-index:400;background:white;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:14px;width:240px;border:2px solid var(--pk)}
+.calc-display{background:#f0f0f0;border-radius:8px;padding:8px 12px;text-align:right;margin-bottom:8px}
+.calc-expr{font-size:11px;color:#888;min-height:16px}
+.calc-val{font-size:22px;font-weight:700;color:#1a1a1a;word-break:break-all}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.calc-btn{padding:10px 4px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;background:#f5f5f5;color:#1a1a1a;transition:opacity .1s}
+.calc-btn:hover{opacity:.75}
+.calc-btn.op{background:var(--pkb);color:var(--pk2)}
+.calc-btn.eq{background:var(--pk);color:white;grid-column:span 2}
+.calc-btn.clr{background:#fee2e2;color:#991b1b}
+.calc-float{position:fixed;bottom:16px;right:16px;z-index:401;background:var(--pk);color:white;border:none;border-radius:50%;width:48px;height:48px;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center}
+/* PRESUPUESTO */
+.pres-tab{background:#fff8e1;border:1px solid #f59e0b;border-radius:8px 8px 0 0;color:#92400e}
+.pres-tab.active{background:white;color:#92400e;border-bottom-color:white}
+
 /* DELIVERY */
 .drow{background:white;border:1px solid var(--pkb);border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:4px solid #f59e0b}
 .drow.entr{border-left-color:#16a34a}.drow.cami{border-left-color:#3b82f6}.drow.canc{border-left-color:#9ca3af;opacity:.7}
@@ -118,16 +135,18 @@ textarea{resize:vertical;min-height:58px}
   #pra{display:block !important}
   @page{size:110mm 170mm;margin:0}
 }
-.tkt{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.4;color:black;padding:5mm 4mm}
+.tkt{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.4;color:black;padding:4mm 4mm;border:3pt solid magenta;border-radius:2mm}
 .tkt-h{font-size:13pt;font-weight:bold;color:#0891b2;text-align:center}
 .tkt-s{font-size:9pt;text-align:center;margin-bottom:1mm}
 .tkt hr{border:none;border-top:.5pt solid #0891b2;margin:1.5mm 0}
 .tkt-i{font-size:10pt;margin-bottom:2mm}
 .tkt-i div{margin-bottom:.5mm}
 .tkt-dir{color:#cc0000;font-weight:700}
+.tkt-numped{font-size:15pt;font-weight:900;color:magenta;display:inline-block}
+.tkt-nbox{display:inline-block;width:18mm;height:6mm;border:.5pt solid #555;vertical-align:middle;margin-left:3mm}
 .tkt table{width:100%;border-collapse:collapse;margin-bottom:2mm}
-.tkt table th{border:.5pt solid #0891b2;padding:.6mm 1mm;font-size:8pt}
-.tkt table td{border:.5pt solid #ddd;padding:.6mm 1mm;font-size:8.5pt}
+.tkt table th{border:.5pt solid #0891b2;padding:.6mm 1mm;font-size:8pt;background:#e0f7fa}
+.tkt table td{border:.5pt solid #0891b2;padding:.6mm 1mm;font-size:8.5pt}
 .tkt table th:nth-child(1),.tkt table td:nth-child(1){width:8%}
 .tkt table th:nth-child(3),.tkt table td:nth-child(3){width:19%}
 .tkt table th:nth-child(4),.tkt table td:nth-child(4){width:19%}
@@ -179,11 +198,11 @@ function dlabel(d){ return DAYS_S[d.getDay()]+' '+d.getDate()+' '+MONTHS_N[d.get
 function newFrm(){
   return {id:Date.now(),date:hoy(),orderNum:'',name:'',phone:'',address:'',
     items:[{qty:'',desc:'',price:'',sub:0}],zone:0,paid:false,payment:'',observations:'',
-    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false};
+    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false,cashLocation:'domicilio'};
 }
 
 // ── ESTADO ────────────────────────────────────
-let db={clients:[],orders:[],config:{zones:cp(DEF_Z)},motoPayments:{}};
+let db={clients:[],orders:[],budgets:[],config:{zones:cp(DEF_Z)},motoPayments:{}};
 let tab='order';
 let modal=null;
 let delDate=new Date(); delDate.setHours(0,0,0,0);
@@ -214,6 +233,9 @@ function setTheme(t){
 }
 applyTheme(theme);
 let acOn=false;
+let presTab=false;
+let presupuesto={items:[{qty:'',desc:'',price:'',sub:0}],clientName:'',clientPhone:'',clientAddress:'',notes:''};
+let showCalc=false;
 let lastO=null;
 let slots=[newFrm()];
 let si=0;
@@ -336,6 +358,7 @@ async function syncD(){
       p.clients=p.clients||[];p.orders=p.orders||[];p.config=p.config||{};
       p.config.zones=p.config.zones?.length?p.config.zones:cp(DEF_Z);
       p.motoPayments=p.motoPayments||{};
+      p.budgets=p.budgets||[];
       db=p;
       setD('ok',`✅ Drive — ${db.orders.length} pedidos`);
     } else {
@@ -390,10 +413,11 @@ async function saveOP(shouldPrint){
     const sub=items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0);
     const zz=getZZ();const ship=zz[S().zone]?.price??0;const tot=sub+ship;
     const pay=S().paid?tot:(parseFloat(S().payment)||0);
+    const finalPaid=S().paid||(S().payMethod==='efectivo'&&S().cashLocation==='local')||(S().payMethod==='transferencia'&&S().transferDone);
     const order={
       id:S().id,date:S().date,orderNum:S().orderNum,name:S().name,phone:S().phone,
-      address:S().address,observations:S().observations,zone:S().zone,paid:S().paid,
-      payMethod:S().payMethod,transferDone:S().transferDone,
+      address:S().address,observations:S().observations,zone:S().zone,paid:finalPaid,
+      payMethod:S().payMethod,transferDone:S().transferDone,cashLocation:S().cashLocation,
       items,shipping:ship,subtotal:sub,total:tot,payment:pay,
       zoneName:zz[S().zone]?.label||'',savedAt:new Date().toISOString(),
       dStatus:S().dStatus||'pendiente',dZona:S().dZona||zz[S().zone]?.label||'',dAbona:S().dAbona||''
@@ -446,7 +470,7 @@ function editOrder(id){
     items:o.items.map(i=>({...i})),zone:zi,paid:!!o.paid,payment:String(o.payment||''),
     observations:o.observations||'',editing:true,
     dStatus:o.dStatus||'pendiente',dZona:o.dZona||'',dAbona:String(o.dAbona||''),
-    payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone};
+    payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone,cashLocation:o.cashLocation||'domicilio'};
   if(slots.length<4){slots.push(ef);si=slots.length-1;}else slots[si]=ef;
   modal=null;tab='order';render();
 }
@@ -489,38 +513,63 @@ async function saveClient(){
 
 // ── PRINT ─────────────────────────────────────
 function printO(o){
+  const isTransfer = o.payMethod==='transferencia';
+  const isCashLocal = o.payMethod==='efectivo' && o.cashLocation==='local';
+  const isCashDoor = !isTransfer && !isCashLocal;
+  const fullyPaid = o.paid || isCashLocal || (isTransfer && o.transferDone) || (isCashDoor && o.dStatus==='entregado');
   const ch=(o.payment||0)-(o.total||0);
-  const pl=o.paid
-    ?`<div style="font-weight:700;color:#065f46">✓ PAGADO — Sin vuelto</div>`
-    :`<div style="color:#15803d;font-weight:600">Abona: $${fmt(o.payment)}</div>
-      <div style="font-weight:700;color:#b91c1c;font-size:11.5pt">${ch>=0?'Vuelto':'Falta'}: $${fmt(Math.abs(ch))}</div>`;
+
+  // Payment status block for print
+  let pl;
+  if(fullyPaid){
+    const label = isTransfer ? '🏦 Pago transferencia' : isCashLocal ? '💵 Pago efectivo local' : '💵 Cobrado en domicilio';
+    pl = `<div style="font-size:11pt;font-weight:700;color:#065f46">${label}</div>
+          <div style="font-size:12pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>`;
+  } else if(isTransfer){
+    pl = `<div style="font-weight:700;color:#f59e0b">⚠️ Falta transferir</div>
+          <div style="font-size:12pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>`;
+  } else {
+    // Cash at door, not yet delivered
+    pl = `<div style="font-size:12pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
+          <div style="font-size:10pt;color:#555">💵 Abona en domicilio</div>
+          ${o.payment?`<div style="color:#15803d;font-weight:600">Abona: $${fmt(o.payment)}</div>${ch>=0?`<div style="font-weight:700;color:#b91c1c">Vuelto: $${fmt(Math.abs(ch))}</div>`:''}`:'' }`;
+  }
+
   document.getElementById('pra').innerHTML=`
 <div class="tkt">
   <div class="tkt-h">Pañalera Primeros Pasos</div>
   <div class="tkt-s" style="font-size:11pt;font-weight:bold"><span style="font-size:12pt;margin-right:3pt">💬</span>15-3935-9610</div>
   <div class="tkt-s">Lunes a Viernes de 10 a 19 hs</div>
   <hr>
+  <div style="margin-bottom:2mm">
+    <div style="display:flex;align-items:center;gap:4mm">
+      <span class="tkt-numped">${o.orderNum?'#'+o.orderNum:'#'+String(o.id).slice(-6)}</span>
+      <span class="tkt-nbox"></span>
+      <span style="font-size:9pt;color:#555">Fecha: ${o.date}</span>
+    </div>
+    <div style="display:inline-block;width:21%;height:8mm;border:.8pt solid #555;margin-top:2mm;border-radius:1mm"></div>
+  </div>
   <div class="tkt-i">
-    <div><strong>Fecha:</strong> ${o.date} &nbsp; <strong>N°</strong> ${o.orderNum||String(o.id).slice(-6)}</div>
-    <div><strong>Cliente:</strong> ${o.name||'—'}</div>
-    <div><strong>Tel:</strong> ${o.phone||'—'}</div>
-    ${o.address?`<div><strong class="tkt-dir">Dir:</strong> <span class="tkt-dir">${o.address}</span></div>`:''}
+    ${o.name?`<div><strong>Cliente:</strong> ${o.name}</div>`:''}
+    ${o.phone?`<div><strong>Tel:</strong> ${o.phone}</div>`:''}
+    ${o.address?`<div><strong>Dirección:</strong> <span class="tkt-dir">${o.address}</span></div>`:''}
   </div>
   <table><thead><tr>
-    <th style="width:10%">Cant</th><th>Descripción</th>
-    <th style="width:21%;text-align:right">P.Unit</th>
-    <th style="width:21%;text-align:right">Sub</th>
+    <th style="width:10%;border:.5pt solid #0891b2">Cant</th>
+    <th style="border:.5pt solid #0891b2">Descripción</th>
+    <th style="width:21%;text-align:right;border:.5pt solid #0891b2">P.Unit</th>
+    <th style="width:21%;text-align:right;border:.5pt solid #0891b2">Sub</th>
   </tr></thead><tbody>
   ${(o.items||[]).map(it=>`<tr>
-    <td style="text-align:center">${it.qty}</td><td>${it.desc}</td>
-    <td style="text-align:right">$${fmt(it.price)}</td>
-    <td style="text-align:right">$${fmt(it.sub)}</td>
+    <td style="text-align:center;border:.5pt solid #0891b2">${it.qty}</td>
+    <td style="border:.5pt solid #0891b2">${it.desc}</td>
+    <td style="text-align:right;border:.5pt solid #0891b2">$${fmt(it.price)}</td>
+    <td style="text-align:right;border:.5pt solid #0891b2">$${fmt(it.sub)}</td>
   </tr>`).join('')}
   </tbody></table>
   ${o.observations?`<div style="font-size:9pt;margin-bottom:2mm"><strong>Obs:</strong> ${o.observations}</div>`:''}
   <div class="tkt-tot">
     <div>Mensajería (${o.zoneName||'Sin envío'}): $${fmt(o.shipping)}</div>
-    <div class="tkt-T">TOTAL: $${fmt(o.total)}</div>
     ${pl}
   </div>
   <div style="font-size:8pt;margin-top:2.5mm;text-align:center;font-style:italic;color:#333">Le rogamos revisar el pedido y ante cualquier problema comunicarse en el momento.</div>
@@ -618,19 +667,22 @@ function appHTML(){
     ${tab==='clients' ?clientsHTML() :''}
     ${tab==='config'  ?configHTML()  :''}
   </div>
-  ${modal?modHTML():''}`;
+  ${modal?modHTML():''}
+  ${tab==='order'?calcHTML():''}`;
 }
 
 // ── ORDER TAB ─────────────────────────────────
 function orderHTML(){
   const zz=getZZ(),sub=cSub(),ship=cShip(),tot=cTot();
   const subTabs=`<div class="otabs">
-    ${slots.map((f,i)=>`<div class="otab ${i===si?'active':''}" onclick="switchSlot(${i})">
+    <div class="otab pres-tab ${presTab?'active':''}" onclick="presTab=true;render()" style="background:${presTab?'white':'#fff8e1'};color:#92400e;border-color:#f59e0b">📄 Presupuesto</div>
+    ${slots.map((f,i)=>`<div class="otab ${!presTab&&i===si?'active':''}" onclick="presTab=false;switchSlot(${i})">
         ${sNom(i)}${f.editing?' ✏️':''}
         <span class="otab-x" onclick="event.stopPropagation();closeSlot(${i})">✕</span>
       </div>`).join('')}
     <div class="otab-new" onclick="newSlot()">＋</div>
   </div>`;
+  if(presTab) return subTabs + presupuestoHTML();
   return subTabs+`
 <div class="card">
   <div class="ct">Datos del cliente ${S().editing?'<span class="ebadge">✏️ Editando</span>':''}</div>
@@ -691,28 +743,47 @@ function orderHTML(){
   <!-- TRANSFERENCIA -->
   <div class="ptog" onclick="setPayMethod('transferencia')" style="margin-bottom:8px">
     <input type="radio" name="pm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-    <span style="font-size:13px;font-weight:500">🏦 Transferencia</span>
+    <span style="font-size:13px;font-weight:600">🏦 Transferencia</span>
   </div>
   ${S().payMethod==='transferencia'?`
-  <div class="ptog" onclick="togTransfer()" style="margin-left:24px;margin-bottom:8px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
-    <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-    <div>
-      <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Transferencia pendiente de confirmación'}</span>
-      <div style="font-size:11px;color:#888;margin-top:2px">${S().transferDone?'El pago fue recibido':'Tildar cuando se confirme la transferencia'}</div>
+    <div class="ptog" onclick="togTransfer()" style="margin-left:20px;margin-bottom:8px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
+      <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+      <div>
+        <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Falta transferir'}</span>
+        <div style="font-size:11px;color:#888;margin-top:2px">${S().transferDone?'Pago recibido':'Tildar cuando se confirme el pago'}</div>
+      </div>
     </div>
-  </div>
-  ${!S().transferDone?`<div style="background:#fff9e6;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#92400e;font-weight:600">⚠️ Adeudado — transferencia sin confirmar</div>`:''}
+    ${!S().transferDone?`<div style="background:#fff9e6;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin-left:20px;margin-bottom:8px;font-size:12px;color:#92400e;font-weight:600">⚠️ Falta transferir — adeudado</div>`:''}
   `:''}
 
   <!-- EFECTIVO -->
-  <div class="ptog" onclick="setPayMethod('efectivo')" style="margin-bottom:${S().payMethod==='efectivo'?'10px':'0'}">
+  <div class="ptog" onclick="setPayMethod('efectivo')" style="margin-bottom:8px">
     <input type="radio" name="pm" ${S().payMethod==='efectivo'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-    <span style="font-size:13px;font-weight:500">💵 Efectivo</span>
+    <span style="font-size:13px;font-weight:600">💵 Efectivo</span>
   </div>
   ${S().payMethod==='efectivo'?`
-  <label class="lbl">ABONA CON</label>
-  <input type="number" value="${S().payment}" placeholder="¿Cuánto entrega el cliente?" oninput="S().payment=this.value;updCh()">
-  <div id="ch">${chHTML()}</div>
+    <!-- Pago en local -->
+    <div class="ptog" onclick="setCashLoc('local')" style="margin-left:20px;margin-bottom:8px;background:${S().cashLocation==='local'?'var(--pkl)':'white'}">
+      <input type="radio" name="cl" ${S().cashLocation==='local'?'checked':''} onclick="event.stopPropagation();setCashLoc('local')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+      <div>
+        <span style="font-size:13px;font-weight:600">✅ Pagó en el local</span>
+        <div style="font-size:11px;color:#888;margin-top:1px">El cliente ya abonó</div>
+      </div>
+    </div>
+    <!-- Abona en domicilio -->
+    <div class="ptog" onclick="setCashLoc('domicilio')" style="margin-left:20px;margin-bottom:8px;background:${S().cashLocation==='domicilio'?'#fff9e6':'white'};border-color:${S().cashLocation==='domicilio'?'#f59e0b':'var(--pki)'}">
+      <input type="radio" name="cl" ${S().cashLocation==='domicilio'?'checked':''} onclick="event.stopPropagation();setCashLoc('domicilio')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+      <div style="flex:1">
+        <span style="font-size:13px;font-weight:600">🏠 Abona en domicilio</span>
+        ${S().cashLocation==='domicilio'?`<div style="margin-top:6px">
+          <label style="font-size:10px;font-weight:700;color:var(--pk2);display:block;margin-bottom:3px">ABONA CON</label>
+          <input type="number" value="${S().payment}" placeholder="Monto con el que paga..." 
+            oninput="S().payment=this.value;updCh()"
+            style="width:100%;padding:7px 10px;border:1px solid var(--pki);border-radius:6px;font-size:13px;background:var(--pkf);font-family:inherit">
+        </div>`:''}
+      </div>
+    </div>
+    ${S().cashLocation==='domicilio'&&S().payment?`<div id="ch" style="margin-left:20px">${chHTML()}</div>`:`<div id="ch"></div>`}
   `:'<div id="ch"></div>'}
 </div>
 <div class="card">
@@ -767,10 +838,16 @@ function deliveryHTML(){
       const est=o.dStatus||'pendiente';
       const total=o.total||0;
       const rawAbona = o.dAbona || o.payment || 0;
-      const pagado=String(rawAbona).toLowerCase()==='pago'||o.paid;
-      const abonaNum=pagado?total:(parseFloat(rawAbona)||0);
-      const vuelto=(!pagado&&abonaNum>total&&total>0)?abonaNum-total:0;
-      const trae=pagado?0:(abonaNum>0?abonaNum:total);
+      const isTransfer = o.payMethod==='transferencia';
+      const isCashLocal = o.payMethod==='efectivo' && o.cashLocation==='local';
+      // Cash at door + entregado = moto collected the money → treat as paid
+      const isCashDoorDelivered = !isTransfer && !isCashLocal && est==='entregado';
+      const pagado = o.paid || isCashLocal || (isTransfer && o.transferDone) || isCashDoorDelivered;
+      const abonaNum = pagado ? total : (parseFloat(rawAbona)||0);
+      const vuelto = (!pagado&&abonaNum>total&&total>0)?abonaNum-total:0;
+      const trae = pagado?0:(abonaNum>0?abonaNum:total);
+      // Moto owes money ONLY when en-camino and cash at door (not transfer, not local)
+      const motoOwe = !isTransfer && !isCashLocal && est==='en-camino';
       const cc=est==='entregado'?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':'';
       const bc=est==='entregado'?'#16a34a':est==='en-camino'?'#3b82f6':est==='cancelado'?'#9ca3af':'#f59e0b';
       const zoneName=o.dZona||o.zoneName||'';
@@ -793,11 +870,17 @@ function deliveryHTML(){
           <div style="text-align:right;flex-shrink:0;min-width:150px">
             <div id="damt-${o.id}">
               ${pagado
-                ?`<div style="font-size:16px;font-weight:900;color:#16a34a">✓ PAGÓ</div>
-                  <div style="font-size:13px;color:#666;margin-top:2px">Total pedido: $${fmt(total)}</div>`
-                :`<div style="font-size:14px;font-weight:700;color:#dc2626">Debe moto: $${fmt(trae)}</div>
-                  <div style="font-size:13px;color:#555;margin-top:2px">Total pedido: $${fmt(total)}</div>
-                  ${vuelto>0?`<div style="font-size:13px;font-weight:700;color:#92400e;margin-top:2px">Vuelto: $${fmt(vuelto)}</div>`:''}`}
+                ?`<div style="font-size:15px;font-weight:900;color:#16a34a">${isTransfer?'🏦 Transferencia realizada':isCashLocal?'💵 Pago efectivo local':isCashDoorDelivered?'💵 Cobrado en domicilio':'✓ PAGÓ'}</div>
+                  <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
+                :isTransfer
+                  ?`<div style="font-size:13px;font-weight:700;color:#f59e0b">⚠️ Falta transferir</div>
+                    <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
+                  :motoOwe
+                    ?`<div style="font-size:14px;font-weight:700;color:#dc2626">Debe moto: $${fmt(trae)}</div>
+                      <div style="font-size:13px;color:#555;margin-top:2px">Total pedido: $${fmt(total)}</div>
+                      ${vuelto>0?`<div style="font-size:13px;font-weight:700;color:#92400e;margin-top:2px">Vuelto: $${fmt(vuelto)}</div>`:''}`
+                    :`<div style="font-size:13px;font-weight:700;color:#f59e0b">💵 Pendiente de cobro en domicilio</div>
+                      <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`}
             </div>
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
@@ -825,7 +908,9 @@ function deliveryHTML(){
     const deudaTotal=orders
       .filter(o=>o.dStatus!=='entregado'&&o.dStatus!=='cancelado')
       .reduce((s,o)=>{
-        const pag=String(o.dAbona).toLowerCase()==='pago'||o.paid;
+        const isT=o.payMethod==='transferencia';
+        const isCL=o.payMethod==='efectivo'&&o.cashLocation==='local';
+        const pag=o.paid||isCL||(isT&&o.transferDone);
         return s+(pag?0:(o.total||0));
       },0);
     h+=`<div class="card" style="margin-top:4px">
@@ -1265,6 +1350,7 @@ function closeSlot(i){
 
 function togPaid(){S().paid=!S().paid;if(S().paid)S().payment='';render();}
 function setPayMethod(m){S().payMethod=m;if(m==='transferencia'){S().payment='';}render();}
+function setCashLoc(loc){S().cashLocation=loc;if(loc==='local'){S().paid=true;S().payment='';}else{S().paid=false;}render();}
 function togTransfer(){S().transferDone=!S().transferDone;S().paid=S().transferDone;render();}
 function onZC(v){
   S().zone=parseInt(v);
@@ -1291,6 +1377,273 @@ function updTots(){
 function updCh(){const el=document.getElementById('ch');if(el)el.innerHTML=chHTML();}
 function addI(){S().items.push({qty:'',desc:'',price:'',sub:0});render();}
 function remI(i){if(S().items.length>1){S().items.splice(i,1);render();}}
+
+// ── CALCULADORA ───────────────────────────────
+let calcExpr='',calcVal='0';
+function calcHTML(){
+  return `
+  <button class="calc-float" onclick="showCalc=!showCalc;render()" title="Calculadora">🧮</button>
+  ${showCalc?`<div class="calc-wrap">
+    <div class="calc-display">
+      <div class="calc-expr">${calcExpr||'&nbsp;'}</div>
+      <div class="calc-val">${calcVal}</div>
+    </div>
+    <div class="calc-grid">
+      <button class="calc-btn clr" onclick="calcExpr='';calcVal='0';document.querySelector('.calc-val').textContent='0';document.querySelector('.calc-expr').textContent=''">C</button>
+      <button class="calc-btn op" onclick="calcDel()">⌫</button>
+      <button class="calc-btn op" onclick="calcPercent()">%</button>
+      <button class="calc-btn op" onclick="calcOp('/')">÷</button>
+      <button class="calc-btn" onclick="calcNum('7')">7</button>
+      <button class="calc-btn" onclick="calcNum('8')">8</button>
+      <button class="calc-btn" onclick="calcNum('9')">9</button>
+      <button class="calc-btn op" onclick="calcOp('*')">×</button>
+      <button class="calc-btn" onclick="calcNum('4')">4</button>
+      <button class="calc-btn" onclick="calcNum('5')">5</button>
+      <button class="calc-btn" onclick="calcNum('6')">6</button>
+      <button class="calc-btn op" onclick="calcOp('-')">−</button>
+      <button class="calc-btn" onclick="calcNum('1')">1</button>
+      <button class="calc-btn" onclick="calcNum('2')">2</button>
+      <button class="calc-btn" onclick="calcNum('3')">3</button>
+      <button class="calc-btn op" onclick="calcOp('+')">+</button>
+      <button class="calc-btn" onclick="calcNum('0')" style="grid-column:span 2">0</button>
+      <button class="calc-btn" onclick="calcNum('.')">.</button>
+      <button class="calc-btn eq" onclick="calcEq()">=</button>
+    </div>
+  </div>`:''}`;
+}
+function calcNum(n){
+  if(calcVal==='0'&&n!=='.')calcVal=n;
+  else calcVal+=n;
+  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+}
+function calcOp(op){
+  calcExpr+=(calcVal||'0')+op;calcVal='0';
+  document.querySelector('.calc-expr')&&(document.querySelector('.calc-expr').textContent=calcExpr);
+  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+}
+function calcDel(){
+  if(calcVal.length>1)calcVal=calcVal.slice(0,-1);else calcVal='0';
+  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+}
+function calcPercent(){
+  calcVal=String(parseFloat(calcVal||0)/100);
+  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+}
+function calcEq(){
+  try{
+    const expr=calcExpr+(calcVal||'0');
+    const res=Function('"use strict";return ('+expr+')')();
+    calcVal=String(Math.round(res*100)/100);calcExpr='';
+    document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+    document.querySelector('.calc-expr')&&(document.querySelector('.calc-expr').textContent='');
+  }catch(e){calcVal='Error';document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent='Error');}
+}
+
+// ── PRESUPUESTO ───────────────────────────────
+function presSubTotal(){return presupuesto.items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0);}
+function presUpdI(i,f,v){
+  presupuesto.items[i][f]=v;
+  if(f==='qty'||f==='price'){
+    presupuesto.items[i].sub=(parseFloat(presupuesto.items[i].qty)||0)*(parseFloat(presupuesto.items[i].price)||0);
+    const el=document.getElementById('psub'+i);if(el)el.value=presupuesto.items[i].sub||'';
+    presUpdTot();
+  }
+}
+function presUpdTot(){
+  const tot=presSubTotal();
+  const el=document.getElementById('ptot');if(el)el.textContent='$'+fmt(tot);
+}
+function presAddI(){presupuesto.items.push({qty:'',desc:'',price:'',sub:0});render();}
+function presRemI(i){if(presupuesto.items.length>1){presupuesto.items.splice(i,1);render();}}
+
+function presupuestoHTML(){
+  const tot=presSubTotal();
+  const saved=(db.budgets||[]).slice().reverse();
+  return `
+<div class="card" style="border:2px solid #f59e0b">
+  <div class="ct" style="color:#92400e">📄 Datos del cliente (Presupuesto)</div>
+  <div class="g2">
+    <div>
+      <label class="lbl">NOMBRE</label>
+      <input type="text" value="${presupuesto.clientName}" placeholder="Nombre del cliente" oninput="presupuesto.clientName=this.value">
+    </div>
+    <div>
+      <label class="lbl">TELÉFONO</label>
+      <input type="tel" value="${presupuesto.clientPhone}" placeholder="Teléfono" oninput="presupuesto.clientPhone=this.value">
+    </div>
+  </div>
+  <label class="lbl">DIRECCIÓN</label>
+  <input type="text" value="${presupuesto.clientAddress}" placeholder="Dirección (opcional)" oninput="presupuesto.clientAddress=this.value">
+  <label class="lbl">NOTAS</label>
+  <textarea oninput="presupuesto.notes=this.value" style="min-height:44px">${presupuesto.notes}</textarea>
+</div>
+<div class="card" style="border:2px solid #f59e0b">
+  <div class="ct" style="color:#92400e">Artículos del presupuesto</div>
+  <table class="itable">
+    <thead><tr>
+      <th style="width:52px">Cant</th><th>Descripción</th>
+      <th style="width:85px">P.Unit $</th><th style="width:85px">Subtotal $</th>
+      <th style="width:26px"></th>
+    </tr></thead>
+    <tbody>${presupuesto.items.map((it,i)=>`<tr>
+      <td><input type="number" value="${it.qty}" min="1" placeholder="1" oninput="presUpdI(${i},'qty',this.value)"></td>
+      <td><input type="text" value="${it.desc}" placeholder="Descripción" oninput="presUpdI(${i},'desc',this.value)"></td>
+      <td><input type="number" value="${it.price}" min="0" placeholder="0" oninput="presUpdI(${i},'price',this.value)"></td>
+      <td><input type="number" id="psub${i}" value="${it.sub||''}" readonly></td>
+      <td><button class="bx" onclick="presRemI(${i})">✕</button></td>
+    </tr>`).join('')}</tbody>
+  </table>
+  <button class="btn bs bsm" onclick="presAddI()">+ Agregar artículo</button>
+  <div class="tr-fin" style="margin-top:10px"><span>TOTAL</span><span id="ptot">$${fmt(tot)}</span></div>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+  <button class="btn bfw" style="background:#f59e0b;color:white;flex:1" onclick="savePresupuesto()">💾 Guardar presupuesto</button>
+  <button class="btn" style="background:#0891b2;color:white;padding:13px 16px;flex-shrink:0" onclick="printPresupuesto()">🖨️ Imprimir / PDF</button>
+</div>
+<button class="btn bfw bsm" style="margin-bottom:10px;background:#16a34a;color:white" onclick="presToOrder()">✅ Convertir a Pedido</button>
+
+${saved.length?`<div class="card">
+  <div class="ct" style="color:#92400e">📋 Presupuestos guardados</div>
+  ${saved.map(b=>`
+  <div style="padding:10px 0;border-bottom:1px solid #fde68a;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+    <div>
+      <div style="font-size:13px;font-weight:600">${b.clientName||'Sin nombre'} ${b.clientPhone?'· '+b.clientPhone:''}</div>
+      <div style="font-size:11px;color:#888">${b.date} · ${b.items.length} artículo(s)</div>
+      ${b.clientAddress?`<div style="font-size:11px;color:#cc0000">${b.clientAddress}</div>`:''}
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:15px;font-weight:700;color:#92400e">$${fmt(b.total)}</div>
+      <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn bsm" style="background:#f59e0b;color:white;font-size:10px;padding:3px 8px" onclick="loadPresupuesto(${b.id})">✏️ Cargar</button>
+        <button class="btn bsm" style="background:#0891b2;color:white;font-size:10px;padding:3px 8px" onclick="printBudget(${b.id})">🖨️</button>
+        <button class="btn bsm" style="background:#16a34a;color:white;font-size:10px;padding:3px 8px" onclick="budgetToOrder(${b.id})">→ Pedido</button>
+        <button class="btn bsm" style="background:#fee2e2;color:#991b1b;font-size:10px;padding:3px 8px" onclick="deleteBudget(${b.id})">🗑️</button>
+      </div>
+    </div>
+  </div>`).join('')}
+</div>`:''}`;
+}
+
+function printPresupuesto(b){
+  const p = b || {
+    clientName:presupuesto.clientName,clientPhone:presupuesto.clientPhone,
+    clientAddress:presupuesto.clientAddress,notes:presupuesto.notes,
+    items:presupuesto.items.filter(i=>i.desc.trim()),
+    total:presSubTotal(),date:hoy(),id:'PRES'
+  };
+  document.getElementById('pra').innerHTML=`
+<div class="tkt">
+  <div class="tkt-h">Pañalera Primeros Pasos</div>
+  <div class="tkt-s" style="font-size:11pt;font-weight:bold">💬 15-3935-9610</div>
+  <div class="tkt-s">Lunes a Viernes de 10 a 19 hs</div>
+  <hr>
+  <div style="font-size:13pt;font-weight:900;color:magenta;margin-bottom:2mm">📄 PRESUPUESTO</div>
+  <div style="font-size:9pt;color:#555;margin-bottom:2mm">Fecha: ${p.date}</div>
+  <div class="tkt-i">
+    ${p.clientName?`<div><strong>Cliente:</strong> ${p.clientName}</div>`:''}
+    ${p.clientPhone?`<div><strong>Tel:</strong> ${p.clientPhone}</div>`:''}
+    ${p.clientAddress?`<div><strong>Dirección:</strong> <span class="tkt-dir">${p.clientAddress}</span></div>`:''}
+    ${p.notes?`<div><strong>Notas:</strong> ${p.notes}</div>`:''}
+  </div>
+  <table><thead><tr>
+    <th style="width:10%;border:.5pt solid #0891b2">Cant</th>
+    <th style="border:.5pt solid #0891b2">Descripción</th>
+    <th style="width:21%;text-align:right;border:.5pt solid #0891b2">P.Unit</th>
+    <th style="width:21%;text-align:right;border:.5pt solid #0891b2">Subtotal</th>
+  </tr></thead><tbody>
+  ${(p.items||[]).filter(it=>it.desc).map(it=>`<tr>
+    <td style="text-align:center;border:.5pt solid #0891b2">${it.qty}</td>
+    <td style="border:.5pt solid #0891b2">${it.desc}</td>
+    <td style="text-align:right;border:.5pt solid #0891b2">$${fmt(it.price)}</td>
+    <td style="text-align:right;border:.5pt solid #0891b2">$${fmt(it.sub)}</td>
+  </tr>`).join('')}
+  </tbody></table>
+  <div class="tkt-tot">
+    <div class="tkt-T" style="color:magenta">TOTAL: $${fmt(p.total)}</div>
+    <div style="font-size:8pt;color:#888;margin-top:1mm;font-style:italic">Presupuesto válido por 7 días · Precios sujetos a cambio</div>
+  </div>
+  <div class="tkt-f">¡Gracias! 🎀</div>
+</div>`;
+  window.print();
+}
+
+function printBudget(id){
+  const b=db.budgets.find(x=>x.id===id);if(b)printPresupuesto(b);
+}
+
+async function savePresupuesto(){
+  const items=presupuesto.items.filter(i=>i.desc.trim());
+  if(!items.length){alert('Agregá al menos un artículo.');return;}
+  const total=presSubTotal();
+  const budget={
+    id:Date.now(),date:hoy(),
+    clientName:presupuesto.clientName,clientPhone:presupuesto.clientPhone,
+    clientAddress:presupuesto.clientAddress,notes:presupuesto.notes,
+    items,total,savedAt:new Date().toISOString()
+  };
+  setD('sync','Guardando presupuesto...');
+  try{
+    const m=await drMerge(f=>{
+      f.budgets=f.budgets||[];
+      f.budgets.push(budget);
+      // Also save client if phone/name given
+      if(budget.clientPhone||budget.clientName){
+        const ci=f.clients.findIndex(c=>c.phone===budget.clientPhone&&budget.clientPhone);
+        const cd={name:budget.clientName,phone:budget.clientPhone,address:budget.clientAddress};
+        if(ci>=0) f.clients[ci]={...f.clients[ci],...cd};else f.clients.push(cd);
+      }
+      return f;
+    });
+    db=m;
+    setD('ok',`✅ Presupuesto guardado — ${db.budgets.length} presupuesto(s)`);
+    showToast('Presupuesto guardado ✓');
+    presupuesto={items:[{qty:'',desc:'',price:'',sub:0}],clientName:'',clientPhone:'',clientAddress:'',notes:''};
+    render();
+  }catch(e){setD('off','Error: '+e.message);render();}
+}
+
+function loadPresupuesto(id){
+  const b=db.budgets.find(x=>x.id===id);if(!b)return;
+  presupuesto={
+    items:b.items.map(i=>({...i})),
+    clientName:b.clientName||'',clientPhone:b.clientPhone||'',
+    clientAddress:b.clientAddress||'',notes:b.notes||''
+  };
+  render();
+}
+
+async function deleteBudget(id){
+  if(!confirm('¿Eliminar este presupuesto?'))return;
+  const m=await drMerge(f=>{f.budgets=(f.budgets||[]).filter(x=>x.id!==id);return f;});
+  db=m;render();showToast('Presupuesto eliminado');
+}
+
+function presToOrder(){
+  const items=presupuesto.items.filter(i=>i.desc.trim());
+  if(!items.length){alert('Agregá al menos un artículo al presupuesto.');return;}
+  if(slots.length>=4){alert('Máximo 4 pedidos simultáneos. Cerrá uno primero.');return;}
+  const nf=newFrm();
+  nf.name=presupuesto.clientName;
+  nf.phone=presupuesto.clientPhone;
+  nf.address=presupuesto.clientAddress;
+  nf.observations=presupuesto.notes;
+  nf.items=items.map(i=>({...i}));
+  slots.push(nf);si=slots.length-1;presTab=false;
+  showToast('Presupuesto convertido a pedido ✓');
+  render();
+}
+
+function budgetToOrder(id){
+  const b=db.budgets.find(x=>x.id===id);if(!b)return;
+  if(slots.length>=4){alert('Máximo 4 pedidos simultáneos.');return;}
+  const nf=newFrm();
+  nf.name=b.clientName||'';nf.phone=b.clientPhone||'';
+  nf.address=b.clientAddress||'';nf.observations=b.notes||'';
+  nf.items=b.items.map(i=>({...i}));
+  slots.push(nf);si=slots.length-1;presTab=false;
+  showToast('Presupuesto convertido a pedido ✓');
+  render();
+}
 
 // ── INIT ──────────────────────────────────────
 render();
