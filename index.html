@@ -179,7 +179,7 @@ function dlabel(d){ return DAYS_S[d.getDay()]+' '+d.getDate()+' '+MONTHS_N[d.get
 function newFrm(){
   return {id:Date.now(),date:hoy(),orderNum:'',name:'',phone:'',address:'',
     items:[{qty:'',desc:'',price:'',sub:0}],zone:0,paid:false,payment:'',observations:'',
-    editing:false,dStatus:'pendiente',dZona:'',dAbona:''};
+    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false};
 }
 
 // ── ESTADO ────────────────────────────────────
@@ -393,6 +393,7 @@ async function saveOP(shouldPrint){
     const order={
       id:S().id,date:S().date,orderNum:S().orderNum,name:S().name,phone:S().phone,
       address:S().address,observations:S().observations,zone:S().zone,paid:S().paid,
+      payMethod:S().payMethod,transferDone:S().transferDone,
       items,shipping:ship,subtotal:sub,total:tot,payment:pay,
       zoneName:zz[S().zone]?.label||'',savedAt:new Date().toISOString(),
       dStatus:S().dStatus||'pendiente',dZona:S().dZona||zz[S().zone]?.label||'',dAbona:S().dAbona||''
@@ -444,7 +445,8 @@ function editOrder(id){
   const ef={id:o.id,date:o.date,orderNum:o.orderNum||'',name:o.name,phone:o.phone,address:o.address||'',
     items:o.items.map(i=>({...i})),zone:zi,paid:!!o.paid,payment:String(o.payment||''),
     observations:o.observations||'',editing:true,
-    dStatus:o.dStatus||'pendiente',dZona:o.dZona||'',dAbona:String(o.dAbona||'')};
+    dStatus:o.dStatus||'pendiente',dZona:o.dZona||'',dAbona:String(o.dAbona||''),
+    payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone};
   if(slots.length<4){slots.push(ef);si=slots.length-1;}else slots[si]=ef;
   modal=null;tab='order';render();
 }
@@ -534,6 +536,10 @@ function cTot()  { return cSub()+cShip(); }
 
 function chHTML(){
   const tot=cTot();
+  if(S().payMethod==='transferencia'){
+    if(S().transferDone) return `<div class="chbox pagado"><div class="chlbl">✅ Transferencia confirmada</div><div class="chamt">$${fmt(tot)}</div><div class="chdet">Pago recibido</div></div>`;
+    return '';
+  }
   if(S().paid) return `<div class="chbox pagado"><div class="chlbl">✅ Pedido pagado</div><div class="chamt">$${fmt(tot)}</div><div class="chdet">El cliente no lleva vuelto ni debe nada</div></div>`;
   if(!S().payment) return '';
   const pay=parseFloat(S().payment)||0,ch=pay-tot;
@@ -680,14 +686,34 @@ function orderHTML(){
   </div>
 </div>
 <div class="card">
-  <div class="ct">Pago</div>
-  <div class="ptog" onclick="togPaid()">
-    <input type="checkbox" ${S().paid?'checked':''} onclick="event.stopPropagation();togPaid()">
-    <span>✅ Pedido ya pagado — no lleva vuelto</span>
+  <div class="ct">Forma de pago</div>
+
+  <!-- TRANSFERENCIA -->
+  <div class="ptog" onclick="setPayMethod('transferencia')" style="margin-bottom:8px">
+    <input type="radio" name="pm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+    <span style="font-size:13px;font-weight:500">🏦 Transferencia</span>
   </div>
-  ${!S().paid?`<label class="lbl">ABONA</label>
-  <input type="number" value="${S().payment}" placeholder="¿Cuánto entrega el cliente?" oninput="S().payment=this.value;updCh()">`:``}
+  ${S().payMethod==='transferencia'?`
+  <div class="ptog" onclick="togTransfer()" style="margin-left:24px;margin-bottom:8px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
+    <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+    <div>
+      <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Transferencia pendiente de confirmación'}</span>
+      <div style="font-size:11px;color:#888;margin-top:2px">${S().transferDone?'El pago fue recibido':'Tildar cuando se confirme la transferencia'}</div>
+    </div>
+  </div>
+  ${!S().transferDone?`<div style="background:#fff9e6;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#92400e;font-weight:600">⚠️ Adeudado — transferencia sin confirmar</div>`:''}
+  `:''}
+
+  <!-- EFECTIVO -->
+  <div class="ptog" onclick="setPayMethod('efectivo')" style="margin-bottom:${S().payMethod==='efectivo'?'10px':'0'}">
+    <input type="radio" name="pm" ${S().payMethod==='efectivo'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+    <span style="font-size:13px;font-weight:500">💵 Efectivo</span>
+  </div>
+  ${S().payMethod==='efectivo'?`
+  <label class="lbl">ABONA CON</label>
+  <input type="number" value="${S().payment}" placeholder="¿Cuánto entrega el cliente?" oninput="S().payment=this.value;updCh()">
   <div id="ch">${chHTML()}</div>
+  `:'<div id="ch"></div>'}
 </div>
 <div class="card">
   <div class="ct">Observaciones</div>
@@ -1197,7 +1223,7 @@ function modHTML(){
       <div style="font-size:13px;color:#666">Subtotal: $${fmt(o.subtotal)}</div>
       <div style="font-size:13px;color:#666">Envío: $${fmt(o.shipping)}</div>
       <div style="font-size:19px;font-weight:600;color:var(--pk2)">Total: $${fmt(o.total)}</div>
-      ${ip?`<div style="font-size:13px;font-weight:700;color:#15803d">✅ PAGADO</div>`
+      ${(o.payMethod==="transferencia"&&!o.transferDone)?`<div style="font-size:13px;font-weight:700;color:#92400e">⚠️ Adeudado — transferencia sin confirmar</div>`:o.paid||ip?`<div style="font-size:13px;font-weight:700;color:#15803d">${o.payMethod==="transferencia"?"🏦 Transferencia confirmada":"✅ PAGADO"}</div>`
           :`<div style="font-size:13px;color:#15803d;font-weight:600">Abona: $${fmt(o.payment)}</div>
             <div style="font-size:13px;font-weight:600;color:${ch>=0?'#15803d':'#b91c1c'}">${ch>=0?'Vuelto':'Falta'}: $${fmt(Math.abs(ch))}</div>`}
     </div>
@@ -1238,6 +1264,8 @@ function closeSlot(i){
 }
 
 function togPaid(){S().paid=!S().paid;if(S().paid)S().payment='';render();}
+function setPayMethod(m){S().payMethod=m;if(m==='transferencia'){S().payment='';}render();}
+function togTransfer(){S().transferDone=!S().transferDone;S().paid=S().transferDone;render();}
 function onZC(v){
   S().zone=parseInt(v);
   const zz=getZZ(),sub=cSub(),ship=cShip(),tot=cTot();
