@@ -7,79 +7,79 @@
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fdf2f7;color:#1a1a1a;min-height:100vh}
-header{background:linear-gradient(135deg,#d4377a,#a02358);color:white;padding:12px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(160,35,88,.3)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--pkll,#fdf2f7);color:#1a1a1a;min-height:100vh}
+header{background:linear-gradient(135deg,var(--pk,#d4377a),var(--pk2,#a02358));color:white;padding:12px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(160,35,88,.3)}
 header h1{font-size:16px;font-weight:600}
 header p{font-size:11px;opacity:.85;margin-top:2px}
-.tabs{display:flex;background:white;border-bottom:1px solid #f0d0e0;position:sticky;top:58px;z-index:99;overflow-x:auto}
+.tabs{display:flex;background:white;border-bottom:1px solid var(--pkb);position:sticky;top:58px;z-index:99;overflow-x:auto}
 .tab{flex:1;min-width:60px;padding:10px 4px;text-align:center;font-size:11px;font-weight:500;cursor:pointer;border-bottom:2.5px solid transparent;color:#999;white-space:nowrap}
-.tab.active{color:#d4377a;border-bottom-color:#d4377a}
-.dbar{display:flex;align-items:center;gap:8px;padding:5px 14px;background:#a02358;flex-wrap:wrap}
+.tab.active{color:var(--pk,#d4377a);border-bottom-color:var(--pk,#d4377a)}
+.dbar{display:flex;align-items:center;gap:8px;padding:5px 14px;background:var(--pk2,#a02358);flex-wrap:wrap}
 .dbadge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
 .dbadge.ok{background:#dcfce7;color:#166534}.dbadge.off{background:#fee2e2;color:#991b1b}.dbadge.sync{background:#fef3c7;color:#92400e}
 .dbar-msg{flex:1;font-size:11px;color:rgba(255,255,255,.85)}
 .dbar-btn{padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:white;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap}
 .dbar-btn:hover{background:rgba(255,255,255,.28)}
 .content{padding:12px;max-width:800px;margin:0 auto}
-.card{background:white;border-radius:10px;border:1px solid #f0d0e0;padding:14px;margin-bottom:10px}
-.ct{font-size:10px;font-weight:700;color:#a02358;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
-.lbl{display:block;font-size:10px;font-weight:600;color:#a02358;margin-bottom:3px;letter-spacing:.07em;margin-top:8px}
+.card{background:white;border-radius:10px;border:1px solid var(--pkb);padding:14px;margin-bottom:10px}
+.ct{font-size:10px;font-weight:700;color:var(--pk2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.lbl{display:block;font-size:10px;font-weight:600;color:var(--pk2);margin-bottom:3px;letter-spacing:.07em;margin-top:8px}
 .lbl:first-child{margin-top:0}
-input[type=text],input[type=tel],input[type=number],select,textarea{width:100%;padding:8px 10px;border:1px solid #e8c8d8;border-radius:6px;font-size:13px;background:#fdf8fb;outline:none;font-family:inherit;color:#1a1a1a}
-input:focus,select:focus,textarea:focus{border-color:#d4377a;background:white}
+input[type=text],input[type=tel],input[type=number],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--pki);border-radius:6px;font-size:13px;background:var(--pkf);outline:none;font-family:inherit;color:#1a1a1a}
+input:focus,select:focus,textarea:focus{border-color:var(--pk);background:white}
 input[readonly]{background:#f5f0f3;color:#aaa}
 textarea{resize:vertical;min-height:58px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .itable{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
-.itable th{background:#fce4ef;color:#a02358;padding:5px 6px;text-align:left;font-size:10px;font-weight:700;white-space:nowrap}
+.itable th{background:var(--pkl);color:var(--pk2);padding:5px 6px;text-align:left;font-size:10px;font-weight:700;white-space:nowrap}
 .itable td{padding:3px 4px;border-bottom:1px solid #f5e0ec;vertical-align:middle}
 .itable td input{padding:5px 6px;font-size:12px;border-radius:4px}
-.bx{background:none;border:none;cursor:pointer;font-size:14px;color:#d4377a;padding:4px 6px}
+.bx{background:none;border:none;cursor:pointer;font-size:14px;color:var(--pk);padding:4px 6px}
 .btn{padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:opacity .15s}
 .btn:hover{opacity:.85}
-.bp{background:#d4377a;color:white}.bs{background:#f0d0e0;color:#a02358}.bd{background:#a02358;color:white}
+.bp{background:var(--pk,#d4377a);color:white}.bs{background:var(--pkb,#f0d0e0);color:var(--pk2,#a02358)}.bd{background:var(--pk2,#a02358);color:white}
 .bsm{padding:6px 11px;font-size:12px}.bfw{width:100%;padding:13px;font-size:15px}
 .tr-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
-.tr-fin{display:flex;justify-content:space-between;font-size:20px;font-weight:600;color:#a02358;border-top:1.5px solid #d4377a;padding-top:8px;margin-top:5px}
+.tr-fin{display:flex;justify-content:space-between;font-size:20px;font-weight:600;color:var(--pk2,#a02358);border-top:1.5px solid var(--pk,#d4377a);padding-top:8px;margin-top:5px}
 .chbox{border-radius:8px;padding:10px 14px;margin-top:10px}
 .chbox.vuelto{background:#f0faf0;border:1px solid #86efac;color:#15803d}
 .chbox.falta{background:#fff5f5;border:1px solid #fca5a5;color:#991b1b}
 .chbox.pagado{background:#f0faf5;border:1px solid #6ee7b7;color:#065f46}
 .chlbl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px}
 .chamt{font-size:22px;font-weight:700}.chdet{font-size:11px;margin-top:3px;opacity:.8}
-.ptog{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f9f9f9;border:1px solid #e8c8d8;border-radius:8px;cursor:pointer;margin-bottom:10px;user-select:none}
-.ptog:hover{background:#fce4ef}
-.ptog input[type=checkbox]{width:17px;height:17px;accent-color:#d4377a;cursor:pointer;flex-shrink:0}
+.ptog{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f9f9f9;border:1px solid var(--pki);border-radius:8px;cursor:pointer;margin-bottom:10px;user-select:none}
+.ptog:hover{background:var(--pkl)}
+.ptog input[type=checkbox]{width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0}
 .acw{position:relative}
-.acl-box{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #d4377a;border-top:none;border-radius:0 0 8px 8px;z-index:300;max-height:160px;overflow-y:auto;box-shadow:0 6px 16px rgba(212,55,122,.15)}
+.acl-box{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--pk);border-top:none;border-radius:0 0 8px 8px;z-index:300;max-height:160px;overflow-y:auto;box-shadow:0 6px 16px rgba(212,55,122,.15)}
 .aci{padding:8px 10px;cursor:pointer;border-bottom:1px solid #f5e0ec}
-.aci:hover{background:#fce4ef}
+.aci:hover{background:var(--pkl)}
 .acin{font-size:13px;font-weight:500}.acis{font-size:11px;color:#999;margin-top:1px}
-.otabs{display:flex;align-items:center;gap:6px;padding:8px 12px 0;background:#fdf2f7;flex-wrap:wrap}
-.otab{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #f0d0e0;border-bottom:none;background:#fce4ef;color:#a02358}
-.otab.active{background:white;color:#d4377a}
+.otabs{display:flex;align-items:center;gap:6px;padding:8px 12px 0;background:var(--pkll);flex-wrap:wrap}
+.otab{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--pkb,#f0d0e0);border-bottom:none;background:var(--pkl,#fce4ef);color:var(--pk2,#a02358)}
+.otab.active{background:white;color:var(--pk,#d4377a)}
 .otab-x{font-size:13px;line-height:1;opacity:.6}.otab-x:hover{opacity:1}
-.otab-new{padding:6px 12px;border-radius:8px 8px 0 0;font-size:16px;cursor:pointer;border:1px dashed #d4377a;border-bottom:none;color:#d4377a;background:transparent}
-.otab-new:hover{background:#fce4ef}
-.li{background:white;border:1px solid #f0d0e0;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.li:hover{border-color:#d4377a}
+.otab-new{padding:6px 12px;border-radius:8px 8px 0 0;font-size:16px;cursor:pointer;border:1px dashed var(--pk,#d4377a);border-bottom:none;color:var(--pk,#d4377a);background:transparent}
+.otab-new:hover{background:var(--pkl)}
+.li{background:white;border:1px solid var(--pkb);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.li:hover{border-color:var(--pk,#d4377a)}
 .lin{font-weight:500;font-size:14px}.lis{font-size:12px;color:#999;margin-top:2px}
-.liam{font-weight:600;color:#a02358;font-size:15px}
+.liam{font-weight:600;color:var(--pk2,#a02358);font-size:15px}
 .pbadge{display:inline-block;background:#dcfce7;color:#15803d;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
 .ebadge{display:inline-block;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:4px;vertical-align:middle}
-.sb{width:100%;padding:10px 14px;border:1px solid #e8c8d8;border-radius:8px;font-size:13px;background:white;outline:none;margin-bottom:12px;font-family:inherit}
-.sb:focus{border-color:#d4377a}
+.sb{width:100%;padding:10px 14px;border:1px solid var(--pki);border-radius:8px;font-size:13px;background:white;outline:none;margin-bottom:12px;font-family:inherit}
+.sb:focus{border-color:var(--pk,#d4377a)}
 .empty{text-align:center;color:#ccc;padding:40px 0}
 .eico{font-size:40px;margin-bottom:8px}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
 .mo{background:white;border-radius:14px;padding:20px;max-width:440px;width:100%;max-height:88vh;overflow-y:auto}
-.mo h3{color:#a02358;font-size:16px;margin-bottom:12px}
+.mo h3{color:var(--pk2);font-size:16px;margin-bottom:12px}
 .mo table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px}
-.mo table th{background:#fce4ef;padding:5px 8px;font-size:11px;text-align:left}
+.mo table th{background:var(--pkl);padding:5px 8px;font-size:11px;text-align:left}
 .mo table td{padding:4px 8px;border-bottom:1px solid #f5e0ec}
 .mobt{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 /* DELIVERY */
-.drow{background:white;border:1px solid #f0d0e0;border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:4px solid #f59e0b}
+.drow{background:white;border:1px solid var(--pkb);border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:4px solid #f59e0b}
 .drow.entr{border-left-color:#16a34a}.drow.cami{border-left-color:#3b82f6}.drow.canc{border-left-color:#9ca3af;opacity:.7}
 .desel{font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;border:none;font-family:inherit;cursor:pointer}
 .de-pendiente{background:#fef3c7;color:#92400e}.de-entregado{background:#dcfce7;color:#166534}
@@ -89,24 +89,24 @@ textarea{resize:vertical;min-height:58px}
 /* MOTO */
 .zrow{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f9fafb;border-radius:8px;margin-bottom:6px;border:1px solid #f0f0f0}
 .znombre{flex:1;font-size:14px;font-weight:600}.zqty{font-size:13px;color:#6b7280;min-width:70px;text-align:center}
-.zsub{font-size:14px;font-weight:700;color:#a02358;min-width:90px;text-align:right}
-.totbox{background:#a02358;color:#fff;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-.weekcard{border:2px solid #f0d0e0;border-radius:10px;padding:12px;margin-bottom:10px;background:#fdf8fb}
+.zsub{font-size:14px;font-weight:700;color:var(--pk2);min-width:90px;text-align:right}
+.totbox{background:var(--pk2);color:#fff;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.weekcard{border:2px solid var(--pkb);border-radius:10px;padding:12px;margin-bottom:10px;background:#fdf8fb}
 .weekcard.paid{border-color:#16a34a;background:#f0fdf4}.weekcard.empty{border-color:#e5e7eb;background:#f9fafb}
 .weekhdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px}
 .weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
 .daybox{text-align:center;padding:6px 4px;border-radius:6px;background:#f9fafb;border:1px solid #f0f0f0}
-.daybox.has{background:#fff;border-color:#d1d5db}.daybox.today{background:#d4377a;border-color:#d4377a}
+.daybox.has{background:#fff;border-color:#d1d5db}.daybox.today{background:#d4377a;border-color:var(--pk)}
 .daybox-d{font-size:10px;font-weight:700;color:#9ca3af}.daybox.today .daybox-d{color:rgba(255,255,255,.8)}
 .daybox-v{font-size:12px;font-weight:800;color:#d1d5db}.daybox.has .daybox-v{color:#a02358}.daybox.today .daybox-v{color:#fff}
 .btn-pago{padding:5px 12px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit}
 .btn-pago.pend{background:#fef3c7;color:#92400e}.btn-pago.paid{background:#dcfce7;color:#166534}
 /* CLIENTES */
-.cli-row{padding:10px 12px;border-radius:8px;margin-bottom:4px;border:1px solid #f0d0e0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.cli-row{padding:10px 12px;border-radius:8px;margin-bottom:4px;border:1px solid var(--pkb);display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .cli-row:nth-child(odd){background:#f9fafb}.cli-info{flex:1;min-width:0}
 .cli-name{font-size:14px;font-weight:700}.cli-sub{font-size:12px;color:#555;margin-top:2px}
 .cli-notes{font-size:11px;color:#888;margin-top:3px;font-style:italic}
-.cli-stats{text-align:right;flex-shrink:0}.cli-count{font-size:12px;font-weight:800;color:#a02358}
+.cli-stats{text-align:right;flex-shrink:0}.cli-count{font-size:12px;font-weight:800;color:var(--pk2)}
 .cli-last{font-size:10px;color:#9ca3af}
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;background:#a02358;color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:400;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:300px}
@@ -192,6 +192,27 @@ let delQ='';
 let cliMode='list';
 let cliForm={name:'',phone:'',address:'',notes:''};
 let cliQ='';
+let selectedCli=null;
+let theme=localStorage.getItem('pp_theme')||'pink';
+
+// ── TEMAS ─────────────────────────────────────
+const THEMES={
+  pink: {pk:'#d4377a',pk2:'#a02358',pkl:'#fce4ef',pkll:'#fdf2f7',pkb:'#f0d0e0',pki:'#e8c8d8',pkf:'#fdf8fb'},
+  green:{pk:'#16a34a',pk2:'#166534',pkl:'#dcfce7',pkll:'#f0fdf4',pkb:'#bbf7d0',pki:'#86efac',pkf:'#f0fdf4'},
+  cyan: {pk:'#0891b2',pk2:'#0e7490',pkl:'#cffafe',pkll:'#ecfeff',pkb:'#a5f3fc',pki:'#67e8f9',pkf:'#ecfeff'},
+};
+function applyTheme(t){
+  const th=THEMES[t]||THEMES.pink;
+  const r=document.documentElement;
+  Object.entries(th).forEach(([k,v])=>r.style.setProperty('--'+k,v));
+}
+function setTheme(t){
+  theme=t;
+  applyTheme(t);
+  localStorage.setItem('pp_theme',t);
+  render();
+}
+applyTheme(theme);
 let acOn=false;
 let lastO=null;
 let slots=[newFrm()];
@@ -609,11 +630,11 @@ function orderHTML(){
   <div class="ct">Datos del cliente ${S().editing?'<span class="ebadge">✏️ Editando</span>':''}</div>
   <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:end">
     <div><label class="lbl">N° PEDIDO</label>
-      <input type="text" value="${S().orderNum}" placeholder="Ej: 001" oninput="S().orderNum=this.value" style="font-size:16px;font-weight:700;color:#a02358">
+      <input type="text" value="${S().orderNum}" placeholder="Ej: 001" oninput="S().orderNum=this.value" style="font-size:16px;font-weight:700;color:var(--pk2)">
     </div>
     <div><label class="lbl">FECHA</label><input type="text" value="${S().date}" oninput="S().date=this.value"></div>
   </div>
-  <label class="lbl">DIRECCIÓN <span style="color:#d4377a">*</span></label>
+  <label class="lbl">DIRECCIÓN <span style="color:var(--pk)">*</span></label>
   <input type="text" value="${S().address}" placeholder="Dirección de envío (obligatorio)" oninput="S().address=this.value">
   <div class="acw">
     <label class="lbl">TELÉFONO</label>
@@ -654,7 +675,7 @@ function orderHTML(){
   <div class="card">
     <div class="ct">Resumen</div>
     <div class="tr-row"><span>Subtotal</span><span id="ts">$${fmt(sub)}</span></div>
-    <div class="tr-row"><span id="tzl">Envío (${zz[S().zone]?.label})</span><span id="tsh" style="color:#a02358;font-weight:600">$${fmt(ship)}</span></div>
+    <div class="tr-row"><span id="tzl">Envío (${zz[S().zone]?.label})</span><span id="tsh" style="color:var(--pk2);font-weight:600">$${fmt(ship)}</span></div>
     <div class="tr-fin"><span>Total</span><span id="tt">$${fmt(tot)}</span></div>
   </div>
 </div>
@@ -676,7 +697,7 @@ function orderHTML(){
   <button class="btn bp bfw" onclick="saveOP(false)">💾 ${S().editing?'Actualizar pedido':'Guardar pedido'}</button>
   <button class="btn bd" style="padding:13px 16px;flex-shrink:0" onclick="saveOP(true)">🖨️ Guardar e imprimir</button>
 </div>
-<button class="btn bs bfw bsm" style="margin-bottom:8px;border:1px dashed #d4377a" onclick="clearSlot()">🗑️ Nuevo pedido — borrar este formulario</button>
+<button class="btn bs bfw bsm" style="margin-bottom:8px;border:1px dashed var(--pk)" onclick="clearSlot()">🗑️ Nuevo pedido — borrar este formulario</button>
 ${lastO?`<button class="btn bs bfw bsm" style="margin-bottom:4px" onclick="printO(lastO)">↩️ Reimprimir último (${lastO.address||lastO.name})</button>`:''}
 <div style="height:20px"></div>`;
 }
@@ -695,11 +716,11 @@ function deliveryHTML(){
     if(o.dStatus==='pendiente'){totalPend+=(o.total||0);}
   });
 
-  let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid #f0d0e0;border-radius:10px;padding:10px 14px">
+  let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
     <button class="btn bs bsm" onclick="dPrevDay()">◀</button>
     <div style="flex:1;text-align:center">
-      <div style="font-size:15px;font-weight:700;color:#a02358">${isToday?'📅 Hoy — ':' '}${dateStr}</div>
-      <div style="font-size:11px;color:#999;margin-top:2px">${orders.length} pedido(s) · Total: <strong style="color:#a02358">$${fmt(totalDia)}</strong></div>
+      <div style="font-size:15px;font-weight:700;color:var(--pk2)">${isToday?'📅 Hoy — ':' '}${dateStr}</div>
+      <div style="font-size:11px;color:#999;margin-top:2px">${orders.length} pedido(s) · Total: <strong style="color:var(--pk2)">$${fmt(totalDia)}</strong></div>
     </div>
     <button class="btn bs bsm" onclick="dNextDay()" ${isToday?'disabled style="opacity:.3"':''}>▶</button>
   </div>
@@ -739,7 +760,7 @@ function deliveryHTML(){
               <span style="font-size:16px;font-weight:700;color:#cc0000">${o.address||'Sin dirección'}</span>
             </div>
             ${o.name||o.phone?`<div style="font-size:13px;color:#555;margin-top:3px">📞 ${[o.name,o.phone].filter(Boolean).join(' · ')}</div>`:''}
-            ${zoneName?`<div style="font-size:12px;color:#a02358;font-weight:600;margin-top:3px">📍 ${zoneName}${zonePrice>0?' — $'+fmt(zonePrice):' — Bonificado'}</div>`:''}
+            ${zoneName?`<div style="font-size:12px;color:var(--pk2);font-weight:600;margin-top:3px">📍 ${zoneName}${zonePrice>0?' — $'+fmt(zonePrice):' — Bonificado'}</div>`:''}
             ${o.observations?`<div style="font-size:12px;color:#666;margin-top:3px;font-style:italic">📝 ${o.observations}</div>`:''}
           </div>
           <!-- RIGHT: amounts + status -->
@@ -791,7 +812,7 @@ function deliveryHTML(){
         <span style="color:#dc2626;font-weight:600">💰 Plata pendiente (no entregados)</span>
         <span style="font-weight:800;color:#dc2626;font-size:16px">$${fmt(deudaTotal)}</span></div>`:'<div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px"><span style="color:#16a34a;font-weight:600">✅ Todo entregado</span><span style="font-weight:700;color:#16a34a">$0 pendiente</span></div>'}
       <div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px">
-        <span>🛵 A pagar moto</span><span style="font-weight:800;color:#a02358">$${fmt(totalMoto)}</span></div>
+        <span>🛵 A pagar moto</span><span style="font-weight:800;color:var(--pk2)">$${fmt(totalMoto)}</span></div>
     </div>`;
   }
   return h;
@@ -887,7 +908,7 @@ function motoHTML(){
         <div class="weekhdr">
           <div><div style="font-size:11px;font-weight:800;color:#6b7280">SEMANA</div><div style="font-size:13px;font-weight:700">${wkLabel}</div></div>
           <div style="text-align:right">
-            <div style="font-size:20px;font-weight:900;color:${paid?'#16a34a':'#a02358'}">$${fmt(wd.total)}</div>
+            <div style="font-size:20px;font-weight:900;color:${paid?'#16a34a':'var(--pk2)'}">$${fmt(wd.total)}</div>
             ${!empty?`<button class="btn-pago ${paid?'paid':'pend'}" onclick="toggleMotoPago('${wk}').then(()=>render())">${paid?'✅ Pagado':'⏳ Marcar como pagado'}</button>`:'<div style="font-size:11px;color:#9ca3af">Sin envíos</div>'}
           </div>
         </div>
@@ -907,7 +928,7 @@ function motoHTML(){
   const totMes=Object.values(costByDay).reduce((s,v)=>s+v,0);
   const totPagado=sortedWeeks.filter(([wk])=>pagos[wk]).reduce((s,[,w])=>s+w.total,0);
   h+=`<div class="card"><div class="ct">💰 Resumen mensual — ${MONTHS_N[mo]} ${yr}</div>
-    <div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px"><span style="font-weight:600">Total del mes</span><span style="font-weight:800;color:#a02358">$${fmt(totMes)}</span></div>
+    <div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px"><span style="font-weight:600">Total del mes</span><span style="font-weight:800;color:var(--pk2)">$${fmt(totMes)}</span></div>
     <div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px"><span style="color:#16a34a;font-weight:600">✅ Pagado</span><span style="font-weight:800;color:#16a34a">$${fmt(totPagado)}</span></div>
     <div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span style="color:#f59e0b;font-weight:600">⏳ Pendiente</span><span style="font-weight:800;color:#f59e0b">$${fmt(totMes-totPagado)}</span></div>
   </div>`;
@@ -917,26 +938,35 @@ function motoHTML(){
 // ── CLIENTS TAB ───────────────────────────────
 function clientsHTML(){
   if(cliMode==='add') return clientAddHTML();
+  if(selectedCli) return cliDetailHTML(selectedCli);
 
-  // Build enriched client list
   const enriched = db.clients.map(c=>{
     const orders=db.orders.filter(o=>o.phone===c.phone&&c.phone);
-    return {...c, orderCount:orders.length, lastOrder:orders.sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''))[0]?.date||''};
+    const sorted=orders.sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
+    return {...c, orderCount:orders.length, lastOrder:sorted[0]?.date||'', allOrders:sorted};
   }).sort((a,b)=>b.orderCount-a.orderCount);
 
   const list=enriched.filter(c=>!cliQ||
     c.name?.toLowerCase().includes(cliQ.toLowerCase())||
     c.phone?.includes(cliQ)||
-    c.address?.toLowerCase().includes(cliQ.toLowerCase()));
+    c.address?.toLowerCase().includes(cliQ.toLowerCase())||
+    c.notes?.toLowerCase().includes(cliQ.toLowerCase()));
+
+  setTimeout(()=>{
+    const el=document.getElementById('cli-search');
+    if(el&&document.activeElement!==el) el.focus();
+  },0);
 
   return `
 <div style="display:flex;gap:8px;margin-bottom:12px">
-  <input class="sb" type="text" value="${cliQ}" placeholder="🔍 Buscar cliente..." oninput="cliQ=this.value;render()" style="margin-bottom:0">
-  <button class="btn bp bsm" style="flex-shrink:0" onclick="cliMode='add';render()">+ Nuevo</button>
+  <input id="cli-search" class="sb" type="text" value="${cliQ}" placeholder="🔍 Buscar por nombre, teléfono o dirección..." 
+    oninput="cliQ=this.value;renderCliList()" style="margin-bottom:0">
+  <button class="btn bp bsm" style="flex-shrink:0" onclick="cliMode='add';cliQ='';render()">+ Nuevo</button>
 </div>
+<div id="cli-list">
 ${!list.length?`<div class="empty"><div class="eico">👥</div><div>Sin clientes todavía</div></div>`:''}
-${list.map(c=>`
-  <div class="cli-row">
+${list.map((c,i)=>`
+  <div class="cli-row" style="cursor:pointer" onclick="openCli(${i})">
     <div class="cli-info">
       <div class="cli-name">${c.name||'Sin nombre'}</div>
       ${c.phone?`<div class="cli-sub">📞 ${c.phone}</div>`:''}
@@ -946,10 +976,111 @@ ${list.map(c=>`
     <div class="cli-stats">
       <div class="cli-count">${c.orderCount} pedido(s)</div>
       ${c.lastOrder?`<div class="cli-last">Último: ${c.lastOrder}</div>`:''}
+      <div style="font-size:11px;color:var(--pk,#d4377a);margin-top:4px">Ver ficha →</div>
     </div>
   </div>`).join('')}
+</div>
 <div style="margin-top:12px">
   <button class="btn bs bsm" style="width:100%" onclick="exportClientes()">📥 Descargar CSV</button>
+</div>`;
+}
+
+function renderCliList(){
+  const enriched = db.clients.map(c=>{
+    const orders=db.orders.filter(o=>o.phone===c.phone&&c.phone);
+    const sorted=orders.sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
+    return {...c, orderCount:orders.length, lastOrder:sorted[0]?.date||'', allOrders:sorted};
+  }).sort((a,b)=>b.orderCount-a.orderCount);
+
+  const list=enriched.filter(c=>!cliQ||
+    c.name?.toLowerCase().includes(cliQ.toLowerCase())||
+    c.phone?.includes(cliQ)||
+    c.address?.toLowerCase().includes(cliQ.toLowerCase())||
+    c.notes?.toLowerCase().includes(cliQ.toLowerCase()));
+
+  const el=document.getElementById('cli-list');
+  if(!el) return;
+  el.innerHTML = !list.length
+    ? `<div class="empty"><div class="eico">👥</div><div>Sin resultados</div></div>`
+    : list.map((c,i)=>`
+      <div class="cli-row" style="cursor:pointer" onclick="openCli(${i})">
+        <div class="cli-info">
+          <div class="cli-name">${c.name||'Sin nombre'}</div>
+          ${c.phone?`<div class="cli-sub">📞 ${c.phone}</div>`:''}
+          ${c.address?`<div class="cli-sub">📍 ${c.address}</div>`:''}
+          ${c.notes?`<div class="cli-notes">🛍️ ${c.notes}</div>`:''}
+        </div>
+        <div class="cli-stats">
+          <div class="cli-count">${c.orderCount} pedido(s)</div>
+          ${c.lastOrder?`<div class="cli-last">Último: ${c.lastOrder}</div>`:''}
+          <div style="font-size:11px;color:var(--pk,#d4377a);margin-top:4px">Ver ficha →</div>
+        </div>
+      </div>`).join('');
+}
+
+function openCli(idx){
+  const enriched = db.clients.map(c=>{
+    const orders=db.orders.filter(o=>o.phone===c.phone&&c.phone);
+    const sorted=orders.sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
+    return {...c, orderCount:orders.length, lastOrder:sorted[0]?.date||'', allOrders:sorted};
+  }).sort((a,b)=>b.orderCount-a.orderCount);
+  const filtered=enriched.filter(c=>!cliQ||
+    c.name?.toLowerCase().includes(cliQ.toLowerCase())||
+    c.phone?.includes(cliQ)||
+    c.address?.toLowerCase().includes(cliQ.toLowerCase()));
+  selectedCli=filtered[idx];
+  render();
+}
+
+function cliDetailHTML(c){
+  const orders=c.allOrders||[];
+  return `
+<button class="btn bs bsm" style="margin-bottom:12px" onclick="selectedCli=null;render()">← Volver</button>
+<div class="card">
+  <div class="ct">👤 Ficha del cliente</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+    <div>
+      <div style="font-size:11px;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Nombre</div>
+      <div style="font-size:15px;font-weight:700">${c.name||'Sin nombre'}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Teléfono</div>
+      <div style="font-size:15px;font-weight:700">${c.phone||'—'}</div>
+    </div>
+    <div style="grid-column:1/-1">
+      <div style="font-size:11px;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Dirección</div>
+      <div style="font-size:14px">${c.address||'—'}</div>
+    </div>
+    ${c.notes?`<div style="grid-column:1/-1">
+      <div style="font-size:11px;color:#999;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Productos / Notas</div>
+      <div style="font-size:13px;color:#555;font-style:italic">${c.notes}</div>
+    </div>`:''}
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn bp bsm" onclick="newOFor('${c.phone}')">+ Nuevo pedido</button>
+  </div>
+</div>
+<div class="card">
+  <div class="ct">📦 Historial de pedidos (${orders.length})</div>
+  ${!orders.length?'<div style="text-align:center;color:#ccc;padding:20px">Sin pedidos registrados</div>':''}
+  ${orders.map(o=>{
+    const ip=o.paid||(!!(parseFloat(o.payment)||0)&&(parseFloat(o.payment)||0)>=(o.total||0));
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--pkb,#f0d0e0);display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div>
+        <div style="font-size:13px;font-weight:600">
+          ${o.orderNum?`<span style="color:var(--pk2,#a02358)">#${o.orderNum}</span> · `:''} ${o.date}
+          ${ip?'<span class="pbadge">PAGADO</span>':''}
+        </div>
+        <div style="font-size:12px;color:#666;margin-top:2px">${o.address||'Sin dirección'}</div>
+        <div style="font-size:11px;color:#999;margin-top:2px">${(o.items||[]).length} artículo(s) · ${o.zoneName||'Sin envío'}</div>
+        ${o.observations?`<div style="font-size:11px;color:#888;font-style:italic;margin-top:1px">📝 ${o.observations}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:15px;font-weight:700;color:var(--pk2,#a02358)">$${fmt(o.total)}</div>
+        <button class="btn bs bsm" style="font-size:10px;padding:3px 8px;margin-top:4px" onclick="openModal(${o.id})">Ver</button>
+      </div>
+    </div>`;
+  }).join('')}
 </div>`;
 }
 
@@ -986,7 +1117,19 @@ function exportClientes(){
 // ── CONFIG TAB ────────────────────────────────
 function configHTML(){
   const zz=getZZ();
+  const themeNames={pink:'🌸 Rosa',green:'🌿 Verde',cyan:'🩵 Celeste'};
   return `
+<div class="card">
+  <div class="ct">🎨 Combinación de colores</div>
+  <p style="font-size:12px;color:#888;margin-bottom:14px">Cada usuario puede elegir su combinación preferida. Se guarda en este navegador.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${Object.entries({pink:'#d4377a',green:'#16a34a',cyan:'#0891b2'}).map(([t,col])=>`
+      <button onclick="setTheme('${t}')" style="flex:1;min-width:90px;padding:12px 8px;border-radius:10px;border:${theme===t?'3px solid '+col:'2px solid #e5e7eb'};background:${theme===t?col+'15':'white'};cursor:pointer;font-family:inherit;font-size:13px;font-weight:${theme===t?'700':'500'};color:${theme===t?col:'#555'};transition:all .15s">
+        <div style="width:28px;height:28px;border-radius:50%;background:${col};margin:0 auto 6px"></div>
+        ${themeNames[t]}
+      </button>`).join('')}
+  </div>
+</div>
 <div class="card">
   <div class="ct">Zonas de envío — precios</div>
   <p style="font-size:12px;color:#888;margin-bottom:14px">Podés cambiar el nombre y precio de cada zona, o agregar zonas nuevas.</p>
@@ -997,7 +1140,7 @@ function configHTML(){
     <button onclick="removeZone(${i})" style="background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700">×</button>
   </div>`).join('')}
   </div>
-  <button onclick="addZone()" class="btn bs bsm" style="width:100%;margin-bottom:14px;border:1px dashed #d4377a;margin-top:4px">＋ Agregar zona</button>
+  <button onclick="addZone()" class="btn bs bsm" style="width:100%;margin-bottom:14px;border:1px dashed var(--pk);margin-top:4px">＋ Agregar zona</button>
   <p style="font-size:11px;color:#999;margin-bottom:14px">"Bonificado" o precio 0 = envío gratis.</p>
   <button class="btn bp bfw" onclick="saveConfig()">💾 Guardar configuración</button>
 </div>
@@ -1035,7 +1178,7 @@ function modHTML(){
   const ch=(o.payment||0)-(o.total||0);
   return `<div class="ov" onclick="if(event.target===this)closeModal()">
   <div class="mo">
-    <h3>${o.orderNum?`<span style="color:#a02358">#${o.orderNum}</span> · `:''} ${o.date} ${ip?'<span class="pbadge">PAGADO</span>':''}</h3>
+    <h3>${o.orderNum?`<span style="color:var(--pk2)">#${o.orderNum}</span> · `:''} ${o.date} ${ip?'<span class="pbadge">PAGADO</span>':''}</h3>
     <div style="font-size:13px;margin-bottom:10px">
       ${o.name?`<strong>${o.name}</strong> · `:''}${o.phone||''}<br>
       ${o.address?`<span style="color:#cc0000;font-weight:600">${o.address}</span><br>`:''}
@@ -1050,10 +1193,10 @@ function modHTML(){
       </tr>`).join('')}</tbody>
     </table>
     ${o.observations?`<div style="font-size:12px;margin-bottom:8px"><strong>Obs:</strong> ${o.observations}</div>`:''}
-    <div style="text-align:right;border-top:1px solid #f0d0e0;padding-top:10px">
+    <div style="text-align:right;border-top:1px solid var(--pkb);padding-top:10px">
       <div style="font-size:13px;color:#666">Subtotal: $${fmt(o.subtotal)}</div>
       <div style="font-size:13px;color:#666">Envío: $${fmt(o.shipping)}</div>
-      <div style="font-size:19px;font-weight:600;color:#a02358">Total: $${fmt(o.total)}</div>
+      <div style="font-size:19px;font-weight:600;color:var(--pk2)">Total: $${fmt(o.total)}</div>
       ${ip?`<div style="font-size:13px;font-weight:700;color:#15803d">✅ PAGADO</div>`
           :`<div style="font-size:13px;color:#15803d;font-weight:600">Abona: $${fmt(o.payment)}</div>
             <div style="font-size:13px;font-weight:600;color:${ch>=0?'#15803d':'#b91c1c'}">${ch>=0?'Vuelto':'Falta'}: $${fmt(Math.abs(ch))}</div>`}
