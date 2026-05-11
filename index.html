@@ -1383,7 +1383,7 @@ let calcExpr='',calcVal='0';
 function calcHTML(){
   return `
   <button class="calc-float" onclick="showCalc=!showCalc;render()" title="Calculadora">🧮</button>
-  ${showCalc?`<div class="calc-wrap">
+  ${showCalc?`<div class="calc-wrap" id="calc-wrap" tabindex="-1">
     <div class="calc-display">
       <div class="calc-expr" id="calc-expr">${calcExpr||'\u00a0'}</div>
       <div class="calc-val" id="calc-val">${calcVal}</div>
@@ -1439,6 +1439,23 @@ function calcRender(){
   if(ve)ve.textContent=calcVal;
   if(ee)ee.textContent=calcExpr||'\u00a0';
 }
+document.addEventListener('keydown',function(e){
+  if(!showCalc) return;
+  const tag=(document.activeElement||{}).tagName;
+  const calcWrap=document.getElementById('calc-wrap');
+  const inCalc=calcWrap&&calcWrap.contains(document.activeElement);
+  // If focus is in a form field that's NOT inside the calc, let it type normally
+  if((tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')&&!inCalc) return;
+  if(e.key>='0'&&e.key<='9'){e.preventDefault();calcNum(e.key);}
+  else if(e.key==='.'){e.preventDefault();calcNum('.');}
+  else if(e.key==='+'||e.key==='-'||e.key==='*'){e.preventDefault();calcOp(e.key);}
+  else if(e.key==='/'){e.preventDefault();calcOp('/');}
+  else if(e.key==='Enter'||e.key==='='){e.preventDefault();calcEq();}
+  else if(e.key==='Backspace'){e.preventDefault();calcDel();}
+  else if(e.key==='Escape'){e.preventDefault();showCalc=false;render();}
+  else if(e.key==='c'||e.key==='C'){e.preventDefault();calcClr();}
+  else if(e.key==='%'){e.preventDefault();calcPercent();}
+});
 
 // ── PRESUPUESTO ───────────────────────────────
 function presSubTotal(){return presupuesto.items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0);}
