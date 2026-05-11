@@ -768,7 +768,10 @@ function orderHTML(){
     </div></div>`;
   })()}
   <label class="lbl" id="addr-lbl">DIRECCIÓN ${(()=>{const num=S().orderNum?.trim()||'';return num===''||!isNaN(Number(num))?'<span style="color:var(--pk)">*</span>':''})()}</label>
-  <input type="text" id="addr-inp" value="${S().address}" placeholder="${(()=>{const num=S().orderNum?.trim()||'';return num!==''&&isNaN(Number(num))?'Dirección (opcional)':'Dirección de envío (obligatorio)'})()}" oninput="S().address=this.value">
+  <div style="display:flex;gap:6px;align-items:center">
+    <input type="text" id="addr-inp" value="${S().address}" placeholder="${(()=>{const num=S().orderNum?.trim()||'';return num!==''&&isNaN(Number(num))?'Dirección (opcional)':'Dirección de envío (obligatorio)'})()}" oninput="S().address=this.value" style="flex:1">
+    ${S().address.trim()?`<button type="button" onclick="openMapsWalk('${S().address.replace(/'/g,"&#39;")}')" title="Ver en Google Maps (a pie desde el local)" style="flex-shrink:0;background:#4285f4;color:white;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:17px;line-height:1">🗺️</button>`:''}
+  </div>
   <div class="acw">
     <label class="lbl">TELÉFONO</label>
     <input type="tel" value="${S().phone}" placeholder="Buscar por teléfono..."
@@ -949,6 +952,11 @@ function deliveryHTML(){
             <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
               ${o.orderNum?`<span style="font-size:17px;font-weight:900;color:${bc}">${isFlex?'<span style="background:#7c3aed;color:white;padding:1px 6px;border-radius:4px;font-size:13px">FLEX</span>':'#'+o.orderNum}</span>`:''}
               <span style="font-size:16px;font-weight:700;color:#cc0000">${o.address||'Sin dirección'}</span>
+              ${o.address?`<button onclick="openMapsWalk('${(o.address||'').replace(/'/g,"&#39;")}')" title="Ver ruta a pie en Google Maps" style="background:#4285f4;color:white;border:none;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:14px;flex-shrink:0">🗺️</button>`:''}
+              <label title="Incluir en ruta múltiple" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#555;flex-shrink:0">
+                <input type="checkbox" ${(routeSel||[]).includes(o.id)?'checked':''} onchange="toggleRoute(${o.id},this.checked)" style="width:14px;height:14px;accent-color:#4285f4">
+                Ruta
+              </label>
             </div>
             ${o.name||o.phone?`<div style="font-size:13px;color:#555;margin-top:3px">📞 ${[o.name,o.phone].filter(Boolean).join(' · ')}</div>`:''}
             ${zoneName&&!o.noEnvio?`<div style="font-size:12px;color:var(--pk2);font-weight:600;margin-top:3px">📍 ${zoneName}${isBonifZone?` — <span style="color:#16a34a">Bonificado</span> <span style="color:#888;font-size:11px">(moto: $${fmt(motoAmt)})</span>`:zonePrice>0?' — $'+fmt(zonePrice):' — Bonificado'}</div>`:''}
@@ -1029,6 +1037,25 @@ function deliveryHTML(){
         <span>🛵 A pagar moto</span><span style="font-weight:800;color:var(--pk2)">$${fmt(totalMoto)}</span></div>
     </div>`;
   }
+
+  // ── RUTA MÚLTIPLE ──────────────────────────────
+  const selOrders=orders.filter(o=>o.address&&(routeSel||[]).includes(o.id));
+  h+=`<div class="card" style="margin-top:6px;border:2px solid #4285f4">
+    <div class="ct" style="color:#1a56db">🗺️ Planificar ruta en Google Maps</div>
+    <p style="font-size:11px;color:#888;margin-bottom:10px">Tildá "Ruta" en los pedidos que querés incluir, luego abrí el recorrido.</p>
+    ${selOrders.length>0
+      ?`<div style="margin-bottom:8px">${selOrders.map((o,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #dbeafe;font-size:12px">
+          <span style="font-weight:600">${i+1}. ${o.address}</span>
+          <button onclick="toggleRoute(${o.id},false)" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:14px">✕</button>
+        </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bfw" style="background:#4285f4;color:white;flex:1" onclick="openMapsRoute()">🗺️ Abrir ruta (${selOrders.length} parada${selOrders.length>1?'s':''})</button>
+          <button class="btn" style="background:#fee2e2;color:#991b1b;padding:10px 14px" onclick="clearRoute()">✕ Limpiar</button>
+        </div>`
+      :`<div style="text-align:center;color:#94a3b8;font-size:12px;padding:8px 0">Ningún pedido seleccionado — tildá "Ruta" en las tarjetas</div>`}
+  </div>`;
 
   return h;
 }
@@ -1493,7 +1520,38 @@ function updCh(){const el=document.getElementById('ch');if(el)el.innerHTML=chHTM
 function addI(){S().items.push({qty:'',desc:'',price:'',sub:0});render();}
 function remI(i){if(S().items.length>1){S().items.splice(i,1);render();}}
 
-// ── ORDER NUM UI ──────────────────────────────
+let routeSel=[];
+const ORIGIN_ADDR='Juan Bautista Alberdi 437, CABA, Argentina';
+
+function openMapsWalk(dest){
+  const base='https://www.google.com/maps/dir/?api=1';
+  const url=base+'&origin='+encodeURIComponent(ORIGIN_ADDR)+'&destination='+encodeURIComponent(dest+', CABA, Argentina')+'&travelmode=walking';
+  window.open(url,'_blank');
+}
+
+function openMapsRoute(){
+  const orders=(db.orders||[]).filter(o=>routeSel.includes(o.id)&&o.address);
+  if(!orders.length) return;
+  // Google Maps directions supports origin + up to 8 waypoints + destination
+  const addrs=orders.map(o=>o.address+', CABA, Argentina');
+  const origin=ORIGIN_ADDR;
+  const dest=addrs[addrs.length-1];
+  const waypoints=addrs.slice(0,-1);
+  let url='https://www.google.com/maps/dir/?api=1'
+    +'&origin='+encodeURIComponent(origin)
+    +'&destination='+encodeURIComponent(dest)
+    +'&travelmode=driving';
+  if(waypoints.length) url+='&waypoints='+encodeURIComponent(waypoints.join('|'));
+  window.open(url,'_blank');
+}
+
+function toggleRoute(id,checked){
+  if(checked){if(!routeSel.includes(id))routeSel.push(id);}
+  else routeSel=routeSel.filter(x=>x!==id);
+  render();
+}
+
+function clearRoute(){routeSel=[];render();}
 function updOrderNumUI(){
   const num=(S().orderNum||'').trim();
   const isText=num!==''&&isNaN(Number(num));
