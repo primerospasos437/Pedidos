@@ -864,10 +864,12 @@ function deliveryHTML(){
   let totalDia=0,totalMoto=0,totalPend=0,totalEntreg=0;
   orders.forEach(o=>{
     totalDia+=(o.total||0);
-    if(o.dStatus==='entregado') totalEntreg++;
-    if(o.dStatus==='pendiente') totalPend+=(o.total||0);
+    if(o.dStatus==='entregado'||o.dStatus==='retirado') totalEntreg++;
+    if(o.dStatus==='pendiente'||o.dStatus==='retira-cliente') totalPend+=(o.total||0);
     const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
-    if(!isFlex && o.dStatus!=='cancelado'){
+    // retira-cliente and retirado don't count for moto payment
+    const isPickup = o.dStatus==='retira-cliente'||o.dStatus==='retirado';
+    if(!isFlex && !isPickup && o.dStatus!=='cancelado'){
       totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
     }
   });
@@ -900,20 +902,21 @@ function deliveryHTML(){
       const isTransfer = o.payMethod==='transferencia';
       const isCashLocal = o.payMethod==='efectivo' && o.cashLocation==='local';
       // Cash at door + entregado = moto collected the money → treat as paid
-      const isCashDoorDelivered = !isTransfer && !isCashLocal && est==='entregado';
+      const isCashDoorDelivered = !isTransfer && !isCashLocal && (est==='entregado'||est==='retirado');
       const pagado = o.paid || isCashLocal || (isTransfer && o.transferDone) || isCashDoorDelivered;
       const abonaNum = pagado ? total : (parseFloat(rawAbona)||0);
       const vuelto = (!pagado&&abonaNum>total&&total>0)?abonaNum-total:0;
       const trae = pagado?0:(abonaNum>0?abonaNum:total);
       // Moto owes money ONLY when en-camino and cash at door (not transfer, not local)
       const motoOwe = !isTransfer && !isCashLocal && est==='en-camino';
-      const cc=est==='entregado'?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':'';
-      const bc=est==='entregado'?'#16a34a':est==='en-camino'?'#3b82f6':est==='cancelado'?'#9ca3af':'#f59e0b';
+      const cc=est==='entregado'?'entr':est==='retirado'?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':est==='retira-cliente'?'cami':'';
+      const bc=est==='entregado'||est==='retirado'?'#16a34a':est==='en-camino'||est==='retira-cliente'?'#3b82f6':est==='cancelado'?'#9ca3af':'#f59e0b';
       const zoneName=o.dZona||o.zoneName||'';
       const zonePrice=motoZonePrice(zoneName);
 
       const isFlex = (o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
-      const motoAmt = isFlex ? 0 : motoZonePrice(zoneName);
+      const isPickup = est==='retira-cliente'||est==='retirado';
+      const motoAmt = (isFlex||isPickup) ? 0 : motoZonePrice(zoneName);
       const zoneObj = getZZ().find(z=>z.label===zoneName);
       const isBonifZone = zoneObj && zoneObj.motoPrice!=null && zoneObj.price===0;
       h+=`<div class="drow ${cc}" style="padding:14px 16px">
@@ -947,18 +950,20 @@ function deliveryHTML(){
             </div>
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
-                <option value="pendiente"  ${est==='pendiente'?'selected':''}>⏳ Pendiente</option>
-                <option value="en-camino"  ${est==='en-camino'?'selected':''}>🛵 En camino</option>
-                <option value="entregado"  ${est==='entregado'?'selected':''}>✅ Entregado</option>
-                <option value="cancelado"  ${est==='cancelado'?'selected':''}>❌ Cancelado</option>
+                <option value="pendiente"      ${est==='pendiente'?'selected':''}>⏳ Pendiente</option>
+                <option value="retira-cliente" ${est==='retira-cliente'?'selected':''}>🏪 Retira el cliente</option>
+                <option value="en-camino"      ${est==='en-camino'?'selected':''}>🛵 En camino</option>
+                <option value="entregado"      ${est==='entregado'?'selected':''}>✅ Entregado</option>
+                <option value="retirado"       ${est==='retirado'?'selected':''}>🏃 Retiró</option>
+                <option value="cancelado"      ${est==='cancelado'?'selected':''}>❌ Cancelado</option>
               </select>
             </div>
           </div>
         </div>
         <!-- BOTTOM: editar + moto -->
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-          <div style="${isFlex?'color:#7c3aed;font-size:12px;font-weight:700':'color:var(--pk2);font-size:12px;font-weight:700'}">
-            ${isFlex?'🟣 FLEX — no suma a moto':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
+          <div style="${isFlex?'color:#7c3aed;font-size:12px;font-weight:700':isPickup?'color:#3b82f6;font-size:12px;font-weight:700':'color:var(--pk2);font-size:12px;font-weight:700'}">
+            ${isFlex?'🟣 FLEX — no suma a moto':isPickup?'🏪 Retira el cliente — no suma a moto':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
@@ -971,10 +976,11 @@ function deliveryHTML(){
 
   // Resumen del día — deuda = todo lo que NO está entregado (pendiente + en camino)
   if(orders.length){
-    const entregados=orders.filter(o=>o.dStatus==='entregado');
+    const entregados=orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado');
     const camOrders=orders.filter(o=>o.dStatus==='en-camino');
+    const retiraOrders=orders.filter(o=>o.dStatus==='retira-cliente');
     const deudaTotal=orders
-      .filter(o=>o.dStatus!=='entregado'&&o.dStatus!=='cancelado')
+      .filter(o=>o.dStatus!=='entregado'&&o.dStatus!=='retirado'&&o.dStatus!=='cancelado')
       .reduce((s,o)=>{
         const isT=o.payMethod==='transferencia';
         const isCL=o.payMethod==='efectivo'&&o.cashLocation==='local';
@@ -987,6 +993,8 @@ function deliveryHTML(){
         <span>✅ Entregados</span><span style="font-weight:700;color:#16a34a">${entregados.length} de ${orders.filter(o=>o.dStatus!=='cancelado').length}</span></div>
       ${camOrders.length?`<div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px">
         <span>🛵 En camino</span><span style="font-weight:700;color:#1d4ed8">${camOrders.length}</span></div>`:''}
+      ${retiraOrders.length?`<div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px">
+        <span>🏪 Retira el cliente</span><span style="font-weight:700;color:#3b82f6">${retiraOrders.length}</span></div>`:''}
       ${deudaTotal>0?`<div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px">
         <span style="color:#dc2626;font-weight:600">💰 Plata pendiente (no entregados)</span>
         <span style="font-weight:800;color:#dc2626;font-size:16px">$${fmt(deudaTotal)}</span></div>`:'<div class="dcrow" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5e0ec;font-size:13px"><span style="color:#16a34a;font-weight:600">✅ Todo entregado</span><span style="font-weight:700;color:#16a34a">$0 pendiente</span></div>'}
