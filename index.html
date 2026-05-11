@@ -769,8 +769,8 @@ function orderHTML(){
   })()}
   <label class="lbl" id="addr-lbl">DIRECCIÓN ${(()=>{const num=S().orderNum?.trim()||'';return num===''||!isNaN(Number(num))?'<span style="color:var(--pk)">*</span>':''})()}</label>
   <div style="display:flex;gap:6px;align-items:center">
-    <input type="text" id="addr-inp" value="${S().address}" placeholder="${(()=>{const num=S().orderNum?.trim()||'';return num!==''&&isNaN(Number(num))?'Dirección (opcional)':'Dirección de envío (obligatorio)'})()}" oninput="S().address=this.value" style="flex:1">
-    ${S().address.trim()?`<button type="button" onclick="openMapsWalk('${S().address.replace(/'/g,"&#39;")}')" title="Ver en Google Maps (a pie desde el local)" style="flex-shrink:0;background:#4285f4;color:white;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:17px;line-height:1">🗺️</button>`:''}
+    <input type="text" id="addr-inp" value="${S().address}" placeholder="${(()=>{const num=S().orderNum?.trim()||'';return num!==''&&isNaN(Number(num))?'Dirección (opcional)':'Dirección de envío (obligatorio)'})()}" oninput="S().address=this.value;updAddrMapsBtn()" style="flex:1">
+    <div id="addr-maps-btn" style="flex-shrink:0"></div>
   </div>
   <div class="acw">
     <label class="lbl">TELÉFONO</label>
@@ -1552,6 +1552,17 @@ function toggleRoute(id,checked){
 }
 
 function clearRoute(){routeSel=[];render();}
+function updAddrMapsBtn(){
+  const el=document.getElementById('addr-maps-btn');
+  if(!el) return;
+  const addr=(S().address||'').trim();
+  if(addr){
+    el.innerHTML=`<button type="button" onclick="openMapsWalk(this.dataset.addr)" data-addr="${addr.replace(/"/g,'&quot;')}" title="Ver ruta a pie en Google Maps" style="background:#4285f4;color:white;border:none;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:17px;line-height:1">🗺️</button>`;
+  } else {
+    el.innerHTML='';
+  }
+}
+
 function updOrderNumUI(){
   const num=(S().orderNum||'').trim();
   const isText=num!==''&&isNaN(Number(num));
