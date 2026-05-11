@@ -199,7 +199,7 @@ function dlabel(d){ return DAYS_S[d.getDay()]+' '+d.getDate()+' '+MONTHS_N[d.get
 function newFrm(){
   return {id:Date.now(),date:hoy(),orderNum:'',name:'',phone:'',address:'',
     items:[{qty:'',desc:'',price:'',sub:0}],zone:0,paid:false,payment:'',observations:'',
-    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false,cashLocation:'domicilio'};
+    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false,cashLocation:'domicilio',motoNoCobra:false,noEnvio:false};
 }
 
 // ── ESTADO ────────────────────────────────────
@@ -414,7 +414,7 @@ async function saveOP(shouldPrint){
   setD('sync',isEdit?'Actualizando...':'Guardando...');
   try{
     const sub=items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0);
-    const zz=getZZ();const ship=zz[S().zone]?.price??0;const tot=sub+ship;
+    const zz=getZZ();const ship=S().noEnvio?0:(zz[S().zone]?.price??0);const tot=sub+ship;
     const pay=S().paid?tot:(parseFloat(S().payment)||0);
     const finalPaid=S().paid||(S().payMethod==='efectivo'&&S().cashLocation==='local')||(S().payMethod==='transferencia'&&S().transferDone);
     const order={
@@ -424,7 +424,8 @@ async function saveOP(shouldPrint){
       items,shipping:ship,subtotal:sub,total:tot,payment:pay,
       zoneName:zz[S().zone]?.label||'',savedAt:new Date().toISOString(),
       dStatus:S().dStatus||'pendiente',dZona:zz[S().zone]?.label||'',dAbona:S().dAbona||'',
-      motoNoCobra:S().motoNoCobra||false
+      motoNoCobra:S().motoNoCobra||false,
+      noEnvio:S().noEnvio||false
     };
     const merged=await drMerge(fresh=>{
       const ci=fresh.clients.findIndex(c=>c.phone===order.phone);
@@ -492,7 +493,8 @@ function editOrder(id){
     observations:o.observations||'',editing:true,
     dStatus:o.dStatus||'pendiente',dZona:o.dZona||'',dAbona:String(o.dAbona||''),
     payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone,cashLocation:o.cashLocation||'domicilio',
-    motoNoCobra:o.motoNoCobra||false};
+    motoNoCobra:o.motoNoCobra||false,
+    noEnvio:o.noEnvio||false};
   if(slots.length<4){slots.push(ef);si=slots.length-1;}else slots[si]=ef;
   modal=null;tab='order';render();
 }
@@ -640,7 +642,7 @@ function sendWA(){
   window.open(url,'_blank');
 }
 function cSub()  { return S().items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0); }
-function cShip() { return getZZ()[S().zone]?.price??0; }
+function cShip() { if(S().noEnvio) return 0; return getZZ()[S().zone]?.price??0; }
 function cTot()  { return cSub()+cShip(); }
 
 function chHTML(){
@@ -888,7 +890,7 @@ function deliveryHTML(){
     if(o.dStatus==='pendiente'||o.dStatus==='retira-cliente') totalPend+=(o.total||0);
     const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
     const isPickup = o.dStatus==='retira-cliente'||o.dStatus==='retirado';
-    if(!isFlex && !isPickup && o.dStatus!=='cancelado'){
+    if(!isFlex && !isPickup && !o.noEnvio && o.dStatus!=='cancelado'){
       totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
     }
   });
@@ -936,7 +938,7 @@ function deliveryHTML(){
       const isFlex = (o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
       const isPickup = est==='retira-cliente'||est==='retirado';
       const motoNoCobra = !!o.motoNoCobra;
-      const motoAmt = (isFlex||isPickup) ? 0 : motoZonePrice(zoneName);
+      const motoAmt = (isFlex||isPickup||o.noEnvio) ? 0 : motoZonePrice(zoneName);
       const zoneObj = getZZ().find(z=>z.label===zoneName);
       const isBonifZone = zoneObj && zoneObj.motoPrice!=null && zoneObj.price===0;
       h+=`<div class="drow ${cc}" style="padding:14px 16px">
@@ -986,7 +988,7 @@ function deliveryHTML(){
         <!-- BOTTOM: editar + moto -->
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
           <div style="${isFlex?'color:#7c3aed;font-size:12px;font-weight:700':isPickup?'color:#3b82f6;font-size:12px;font-weight:700':'color:var(--pk2);font-size:12px;font-weight:700'}">
-            ${isFlex?'🟣 FLEX — no suma a moto':isPickup?'🏪 Retira el cliente — no suma a moto':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
+            ${isFlex?'🟣 FLEX — no suma a moto':isPickup?'🏪 Retira el cliente — no suma a moto':o.noEnvio?'📦 No envío — no suma a moto':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
           </div>
           <div style="display:flex;gap:6px;align-items:center">
             ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
@@ -1089,8 +1091,8 @@ function motoHTML(){
   const yr=delDate.getFullYear(),mo=delDate.getMonth();
   const costByDay={};
   db.orders.forEach(o=>{
-    if(!o.dStatus==='entregado') return;
-    if(o.dStatus!=='entregado') return;
+    if(!isFlex && !isPickup && o.dStatus!=='cancelado') return;
+    if(o.noEnvio) return;
     const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
     if(isFlex) return;
     const dt=parseArgDate(o.date);
@@ -1497,13 +1499,19 @@ function updOrderNumUI(){
   const el=document.getElementById('moto-no-cobra-block');
   if(!el) return;
   if(isText){
-    el.innerHTML=`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="motoNoCobra" ${S().motoNoCobra?'checked':''} onchange="S().motoNoCobra=this.checked" style="width:18px;height:18px;accent-color:#3b82f6;cursor:pointer">
-      <label for="motoNoCobra" style="font-size:13px;font-weight:600;color:#1d4ed8;cursor:pointer">🛵 La moto no tiene que cobrar nada al cliente</label>
-    </div>`;
+    el.innerHTML=`
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="motoNoCobra" ${S().motoNoCobra?'checked':''} onchange="S().motoNoCobra=this.checked" style="width:18px;height:18px;accent-color:#3b82f6;cursor:pointer">
+        <label for="motoNoCobra" style="font-size:13px;font-weight:600;color:#1d4ed8;cursor:pointer">🛵 La moto no tiene que cobrar nada al cliente</label>
+      </div>
+      <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-top:6px;display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="noEnvio" ${S().noEnvio?'checked':''} onchange="S().noEnvio=this.checked;updCh()" style="width:18px;height:18px;accent-color:#f59e0b;cursor:pointer">
+        <label for="noEnvio" style="font-size:13px;font-weight:600;color:#92400e;cursor:pointer">📦 No envío — no suma zona ni pago a moto</label>
+      </div>`;
   } else {
     el.innerHTML='';
     S().motoNoCobra=false;
+    S().noEnvio=false;
   }
   const addrLbl=document.getElementById('addr-lbl');
   const addrInp=document.getElementById('addr-inp');
