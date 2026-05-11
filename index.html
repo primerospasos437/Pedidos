@@ -420,7 +420,7 @@ async function saveOP(shouldPrint){
       payMethod:S().payMethod,transferDone:S().transferDone,cashLocation:S().cashLocation,
       items,shipping:ship,subtotal:sub,total:tot,payment:pay,
       zoneName:zz[S().zone]?.label||'',savedAt:new Date().toISOString(),
-      dStatus:S().dStatus||'pendiente',dZona:S().dZona||zz[S().zone]?.label||'',dAbona:S().dAbona||''
+      dStatus:S().dStatus||'pendiente',dZona:zz[S().zone]?.label||'',dAbona:S().dAbona||''
     };
     const merged=await drMerge(fresh=>{
       const ci=fresh.clients.findIndex(c=>c.phone===order.phone);
@@ -432,7 +432,14 @@ async function saveOP(shouldPrint){
     });
     db=merged;lastO=order;
     setD('ok',`${isEdit?'✅ Actualizado':'✅ Guardado'} — ${db.orders.length} pedidos`);
-    slots[si]=newFrm();render();
+    if(isEdit){
+      // Keep slot open but mark it as no longer editing-dirty
+      slots[si].editing=true; // still in edit mode so user can keep changing
+      showToast('Pedido actualizado ✓');
+    } else {
+      slots[si]=newFrm();
+    }
+    render();
     if(shouldPrint) setTimeout(()=>printO(lastO),80);
   }catch(e){setD('off','Error: '+e.message);render();}
 }
@@ -544,7 +551,6 @@ function printO(o){
   <div style="margin-bottom:2mm">
     <div style="display:flex;align-items:center;gap:4mm">
       <span class="tkt-numped">${o.orderNum?'#'+o.orderNum:'#'+String(o.id).slice(-6)}</span>
-      <span class="tkt-nbox"></span>
       <span style="font-size:9pt;color:#555">Fecha: ${o.date}</span>
     </div>
     <div style="display:inline-block;width:21%;height:8mm;border:.8pt solid #555;margin-top:2mm;border-radius:1mm"></div>
@@ -578,7 +584,46 @@ function printO(o){
   window.print();
 }
 
-// ── COMPUTED ──────────────────────────────────
+// ── WHATSAPP ──────────────────────────────────
+function sendWA(){
+  const s=S();
+  const sub=cSub(),ship=cShip(),tot=cTot();
+  const items=s.items.filter(i=>i.desc.trim());
+  if(!items.length){alert('El pedido no tiene artículos.');return;}
+  const phone=(s.phone||'').replace(/\D/g,'');
+  // Build message
+  let msg='🎀 *Pañalera Primeros Pasos*\n';
+  msg+='📞 15-3935-9610 · Lun a Vie 10 a 19hs\n';
+  msg+='━━━━━━━━━━━━━━━━━━━\n';
+  if(s.orderNum) msg+=`*Pedido #${s.orderNum}*\n`;
+  if(s.date) msg+=`📅 ${s.date}\n`;
+  msg+='\n';
+  if(s.name) msg+=`👤 *${s.name}*\n`;
+  if(s.phone) msg+=`📱 ${s.phone}\n`;
+  if(s.address) msg+=`📍 ${s.address}\n`;
+  msg+='\n';
+  msg+='*Detalle del pedido:*\n';
+  items.forEach(it=>{
+    msg+=`• ${it.qty}x ${it.desc}`;
+    if(it.price) msg+=` — $${fmt(it.price)} c/u`;
+    if(it.sub) msg+= ` = *$${fmt(it.sub)}*`;
+    msg+='\n';
+  });
+  msg+='━━━━━━━━━━━━━━━━━━━\n';
+  if(ship>0){
+    const zn=getZZ()[s.zone];
+    msg+=`🛵 Envío (${zn?.name||'zona'}): $${fmt(ship)}\n`;
+  }
+  msg+=`💰 *TOTAL: $${fmt(tot)}*\n`;
+  if(s.payMethod==='transferencia') msg+=`\n🏦 _Abona por transferencia_\n`;
+  else if(s.cashLocation==='local') msg+=`\n💵 _Pago en local_\n`;
+  else msg+=`\n💵 _Abona en domicilio_\n`;
+  if(s.observations) msg+=`\n📝 ${s.observations}\n`;
+  msg+='\n_Por favor confirmá si está todo correcto_ ✅';
+
+  const url='https://wa.me/'+(phone?'549'+phone:'')+'?text='+encodeURIComponent(msg);
+  window.open(url,'_blank');
+}
 function cSub()  { return S().items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0); }
 function cShip() { return getZZ()[S().zone]?.price??0; }
 function cTot()  { return cSub()+cShip(); }
@@ -778,6 +823,7 @@ function orderHTML(){
         ${S().cashLocation==='domicilio'?`<div style="margin-top:6px">
           <label style="font-size:10px;font-weight:700;color:var(--pk2);display:block;margin-bottom:3px">ABONA CON</label>
           <input type="number" value="${S().payment}" placeholder="Monto con el que paga..." 
+            onclick="event.stopPropagation()"
             oninput="S().payment=this.value;updCh()"
             style="width:100%;padding:7px 10px;border:1px solid var(--pki);border-radius:6px;font-size:13px;background:var(--pkf);font-family:inherit">
         </div>`:''}
@@ -794,6 +840,7 @@ function orderHTML(){
   <button class="btn bp bfw" onclick="saveOP(false)">💾 ${S().editing?'Actualizar pedido':'Guardar pedido'}</button>
   <button class="btn bd" style="padding:13px 16px;flex-shrink:0" onclick="saveOP(true)">🖨️ Guardar e imprimir</button>
 </div>
+<button class="btn bfw bsm" style="margin-bottom:8px;background:#25d366;color:white;font-size:14px" onclick="sendWA()">📲 Enviar por WhatsApp</button>
 <button class="btn bs bfw bsm" style="margin-bottom:8px;border:1px dashed var(--pk)" onclick="clearSlot()">🗑️ Nuevo pedido — borrar este formulario</button>
 ${lastO?`<button class="btn bs bfw bsm" style="margin-bottom:4px" onclick="printO(lastO)">↩️ Reimprimir último (${lastO.address||lastO.name})</button>`:''}
 <div style="height:20px"></div>`;
@@ -809,8 +856,12 @@ function deliveryHTML(){
   let totalDia=0,totalMoto=0,totalPend=0,totalEntreg=0;
   orders.forEach(o=>{
     totalDia+=(o.total||0);
-    if(o.dStatus==='entregado'){totalEntreg++;totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');}
-    if(o.dStatus==='pendiente'){totalPend+=(o.total||0);}
+    if(o.dStatus==='entregado') totalEntreg++;
+    if(o.dStatus==='pendiente') totalPend+=(o.total||0);
+    const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
+    if(!isFlex && o.dStatus!=='cancelado'){
+      totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
+    }
   });
 
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
@@ -853,13 +904,15 @@ function deliveryHTML(){
       const zoneName=o.dZona||o.zoneName||'';
       const zonePrice=motoZonePrice(zoneName);
 
+      const isFlex = (o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
+      const motoAmt = isFlex ? 0 : motoZonePrice(zoneName);
       h+=`<div class="drow ${cc}" style="padding:14px 16px">
         <!-- TOP ROW: info left, amounts+status right -->
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
           <!-- LEFT: number + address + phone + obs -->
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-              ${o.orderNum?`<span style="font-size:17px;font-weight:900;color:${bc}">#${o.orderNum}</span>`:''}
+              ${o.orderNum?`<span style="font-size:17px;font-weight:900;color:${bc}">${isFlex?'<span style="background:#7c3aed;color:white;padding:1px 6px;border-radius:4px;font-size:13px">FLEX</span>':'#'+o.orderNum}</span>`:''}
               <span style="font-size:16px;font-weight:700;color:#cc0000">${o.address||'Sin dirección'}</span>
             </div>
             ${o.name||o.phone?`<div style="font-size:13px;color:#555;margin-top:3px">📞 ${[o.name,o.phone].filter(Boolean).join(' · ')}</div>`:''}
@@ -892,10 +945,15 @@ function deliveryHTML(){
             </div>
           </div>
         </div>
-        <!-- BOTTOM: editar -->
-        <div style="display:flex;justify-content:flex-end;gap:8px;align-items:center">
-          ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
-          <button class="btn bs bsm" onclick="editOrder(${o.id})" style="font-size:12px;padding:6px 12px">✏️ Editar</button>
+        <!-- BOTTOM: editar + moto -->
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <div style="${isFlex?'color:#7c3aed;font-size:12px;font-weight:700':'color:var(--pk2);font-size:12px;font-weight:700'}">
+            ${isFlex?'🟣 FLEX — no suma a moto':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
+            <button class="btn bs bsm" onclick="editOrder(${o.id})" style="font-size:12px;padding:6px 12px">✏️ Editar</button>
+          </div>
         </div>
       </div>`;
     });
@@ -990,6 +1048,8 @@ function motoHTML(){
   db.orders.forEach(o=>{
     if(!o.dStatus==='entregado') return;
     if(o.dStatus!=='entregado') return;
+    const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
+    if(isFlex) return;
     const dt=parseArgDate(o.date);
     if(dt.getFullYear()===yr&&dt.getMonth()===mo){
       const k=dkDate(o.date);
