@@ -928,7 +928,9 @@ function deliveryHTML(){
       // Cash at door + entregado = moto collected the money → treat as paid
       const isCashDoorDelivered = !isTransfer && !isCashLocal && (est==='entregado'||est==='retirado'||est==='retiro-moto');
       const pagado = o.paid || isCashLocal || (isTransfer && o.transferDone) || isCashDoorDelivered;
-      const abonaNum = pagado ? total : (parseFloat(rawAbona)||0);
+      const rawAbonaNum = parseFloat(rawAbona)||0;
+      const abonaNum = pagado ? total : rawAbonaNum;
+      const motoTrajo = rawAbonaNum > 0 ? rawAbonaNum : total;
       const vuelto = (!pagado&&abonaNum>total&&total>0)?abonaNum-total:0;
       const trae = pagado?0:(abonaNum>0?abonaNum:total);
       // Moto owes money ONLY when en-camino and cash at door (not transfer, not local)
@@ -977,8 +979,7 @@ function deliveryHTML(){
                     :isCashDoorDelivered
                       ?`<div style="font-size:13px;font-weight:700;color:#16a34a">✅ Entregado</div>
                         <div style="font-size:12px;color:#555;margin-top:2px">Total pedido: <strong>$${fmt(total)}</strong></div>
-                        ${abonaNum>0&&abonaNum!==total?`<div style="font-size:12px;color:#555;margin-top:1px">Total que trajo la moto: <strong>$${fmt(abonaNum)}</strong></div>`
-                          :`<div style="font-size:12px;color:#555;margin-top:1px">Total que trajo la moto: <strong>$${fmt(total)}</strong></div>`}`
+                        <div style="font-size:12px;color:#555;margin-top:1px">Total que trajo la moto: <strong>$${fmt(motoTrajo)}</strong></div>`
                       :(est==='pendiente'||est==='en-camino')&&!isCashLocal
                         ?`<div style="font-size:13px;font-weight:700;color:${est==='en-camino'?'#3b82f6':'#f59e0b'}">${est==='en-camino'?'🛵 En camino':'⏳ Pendiente'}</div>
                           <div style="font-size:12px;color:#555;margin-top:2px">Total pedido: <strong>$${fmt(total)}</strong></div>
