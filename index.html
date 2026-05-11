@@ -968,18 +968,25 @@ function deliveryHTML(){
               ${motoNoCobra
                 ?`<div style="font-size:13px;font-weight:700;color:#3b82f6">🛵 Moto no cobra al cliente</div>
                    <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
-                :pagado
-                  ?`<div style="font-size:15px;font-weight:900;color:#16a34a">${isTransfer?'🏦 Transferencia realizada':isCashLocal?'💵 Pago efectivo local':isCashDoorDelivered?'💵 Cobrado en domicilio':'✓ PAGÓ'}</div>
+                :pagado && !isCashDoorDelivered
+                  ?`<div style="font-size:15px;font-weight:900;color:#16a34a">${isTransfer?'🏦 Transferencia realizada':isCashLocal?'💵 Pago efectivo local':'✓ PAGÓ'}</div>
                     <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
                   :isTransfer
                     ?`<div style="font-size:13px;font-weight:700;color:#f59e0b">⚠️ Falta transferir</div>
                       <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
-                    :motoOwe
-                      ?`<div style="font-size:14px;font-weight:700;color:#dc2626">Debe moto: $${fmt(trae)}</div>
-                        <div style="font-size:13px;color:#555;margin-top:2px">Total pedido: $${fmt(total)}</div>
-                        ${vuelto>0?`<div style="font-size:13px;font-weight:700;color:#92400e;margin-top:2px">Vuelto: $${fmt(vuelto)}</div>`:''}`
-                      :`<div style="font-size:13px;font-weight:700;color:#f59e0b">💵 Pendiente de cobro en domicilio</div>
-                        <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`}
+                    :isCashDoorDelivered
+                      ?`<div style="font-size:13px;font-weight:700;color:#16a34a">✅ Entregado</div>
+                        <div style="font-size:12px;color:#555;margin-top:2px">Total pedido: <strong>$${fmt(total)}</strong></div>
+                        ${abonaNum>0&&abonaNum!==total?`<div style="font-size:12px;color:#555;margin-top:1px">Total que trajo la moto: <strong>$${fmt(abonaNum)}</strong></div>`
+                          :`<div style="font-size:12px;color:#555;margin-top:1px">Total que trajo la moto: <strong>$${fmt(total)}</strong></div>`}`
+                      :(est==='pendiente'||est==='en-camino')&&!isCashLocal
+                        ?`<div style="font-size:13px;font-weight:700;color:${est==='en-camino'?'#3b82f6':'#f59e0b'}">${est==='en-camino'?'🛵 En camino':'⏳ Pendiente'}</div>
+                          <div style="font-size:12px;color:#555;margin-top:2px">Total pedido: <strong>$${fmt(total)}</strong></div>
+                          ${abonaNum>0?`<div style="font-size:12px;color:#555;margin-top:1px">Lleva vuelto de: <strong>$${fmt(abonaNum)}</strong></div>
+                            <div style="font-size:12px;font-weight:700;color:#92400e;margin-top:1px">Vuelto: $${fmt(Math.max(0,abonaNum-total))}</div>`
+                            :`<div style="font-size:12px;color:#888;margin-top:1px">💵 Cobra en domicilio: $${fmt(total)}</div>`}`
+                        :`<div style="font-size:13px;font-weight:700;color:#f59e0b">💵 Pendiente de cobro en domicilio</div>
+                          <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`}
             </div>
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
