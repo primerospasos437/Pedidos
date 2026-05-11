@@ -404,7 +404,8 @@ async function drMerge(fn){
 
 // ── GUARDAR PEDIDO ────────────────────────────
 async function saveOP(shouldPrint){
-  if(!S().address.trim()){alert('La dirección es obligatoria.');return;}
+  const isTextOrder = (S().orderNum?.trim()||'')!=='' && isNaN(Number(S().orderNum?.trim()));
+  if(!isTextOrder && !S().address.trim()){alert('La dirección es obligatoria.');return;}
   const items=S().items.filter(i=>i.desc.trim());
   if(!items.length){alert('Agregá al menos un artículo.');return;}
   if(!tok&&!confirm('No conectado a Drive. ¿Guardar solo localmente?')) return;
@@ -422,7 +423,8 @@ async function saveOP(shouldPrint){
       payMethod:S().payMethod,transferDone:S().transferDone,cashLocation:S().cashLocation,
       items,shipping:ship,subtotal:sub,total:tot,payment:pay,
       zoneName:zz[S().zone]?.label||'',savedAt:new Date().toISOString(),
-      dStatus:S().dStatus||'pendiente',dZona:zz[S().zone]?.label||'',dAbona:S().dAbona||''
+      dStatus:S().dStatus||'pendiente',dZona:zz[S().zone]?.label||'',dAbona:S().dAbona||'',
+      motoNoCobra:S().motoNoCobra||false
     };
     const merged=await drMerge(fresh=>{
       const ci=fresh.clients.findIndex(c=>c.phone===order.phone);
@@ -489,7 +491,8 @@ function editOrder(id){
     items:o.items.map(i=>({...i})),zone:zi,paid:!!o.paid,payment:String(o.payment||''),
     observations:o.observations||'',editing:true,
     dStatus:o.dStatus||'pendiente',dZona:o.dZona||'',dAbona:String(o.dAbona||''),
-    payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone,cashLocation:o.cashLocation||'domicilio'};
+    payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone,cashLocation:o.cashLocation||'domicilio',
+    motoNoCobra:o.motoNoCobra||false};
   if(slots.length<4){slots.push(ef);si=slots.length-1;}else slots[si]=ef;
   modal=null;tab='order';render();
 }
@@ -747,12 +750,23 @@ function orderHTML(){
   <div class="ct">Datos del cliente ${S().editing?'<span class="ebadge">✏️ Editando</span>':''}</div>
   <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:end">
     <div><label class="lbl">N° PEDIDO</label>
-      <input type="text" value="${S().orderNum}" placeholder="Ej: 001" oninput="S().orderNum=this.value" style="font-size:16px;font-weight:700;color:var(--pk2)">
+      <input type="text" value="${S().orderNum}" placeholder="Ej: 001" 
+        oninput="S().orderNum=this.value;updOrderNumUI()" 
+        style="font-size:16px;font-weight:700;color:var(--pk2)">
     </div>
     <div><label class="lbl">FECHA</label><input type="text" value="${S().date}" oninput="S().date=this.value"></div>
   </div>
-  <label class="lbl">DIRECCIÓN <span style="color:var(--pk)">*</span></label>
-  <input type="text" value="${S().address}" placeholder="Dirección de envío (obligatorio)" oninput="S().address=this.value">
+  ${(()=>{
+    const num=S().orderNum?.trim()||'';
+    const isText=num!==''&&isNaN(Number(num));
+    if(!isText) return '<div id="moto-no-cobra-block"></div>';
+    return `<div id="moto-no-cobra-block"><div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="motoNoCobra" ${S().motoNoCobra?'checked':''} onchange="S().motoNoCobra=this.checked" style="width:18px;height:18px;accent-color:#3b82f6;cursor:pointer">
+      <label for="motoNoCobra" style="font-size:13px;font-weight:600;color:#1d4ed8;cursor:pointer">🛵 La moto no tiene que cobrar nada al cliente</label>
+    </div></div>`;
+  })()}
+  <label class="lbl" id="addr-lbl">DIRECCIÓN ${(()=>{const num=S().orderNum?.trim()||'';return num===''||!isNaN(Number(num))?'<span style="color:var(--pk)">*</span>':''})()}</label>
+  <input type="text" id="addr-inp" value="${S().address}" placeholder="${(()=>{const num=S().orderNum?.trim()||'';return num!==''&&isNaN(Number(num))?'Dirección (opcional)':'Dirección de envío (obligatorio)'})()}" oninput="S().address=this.value">
   <div class="acw">
     <label class="lbl">TELÉFONO</label>
     <input type="tel" value="${S().phone}" placeholder="Buscar por teléfono..."
@@ -878,10 +892,6 @@ function deliveryHTML(){
       totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
     }
   });
-  // Add paid trips for this day
-  const dayStr=delDate.toLocaleDateString('es-AR');
-  const dayTrips=(db.trips||[]).filter(t=>t.date===dayStr);
-  dayTrips.forEach(t=>{ if(t.paid) totalMoto+=(parseFloat(t.amount)||0); });
 
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
     <button class="btn bs bsm" onclick="dPrevDay()">◀</button>
@@ -925,6 +935,7 @@ function deliveryHTML(){
 
       const isFlex = (o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
       const isPickup = est==='retira-cliente'||est==='retirado';
+      const motoNoCobra = !!o.motoNoCobra;
       const motoAmt = (isFlex||isPickup) ? 0 : motoZonePrice(zoneName);
       const zoneObj = getZZ().find(z=>z.label===zoneName);
       const isBonifZone = zoneObj && zoneObj.motoPrice!=null && zoneObj.price===0;
@@ -944,18 +955,21 @@ function deliveryHTML(){
           <!-- RIGHT: amounts + status -->
           <div style="text-align:right;flex-shrink:0;min-width:150px">
             <div id="damt-${o.id}">
-              ${pagado
-                ?`<div style="font-size:15px;font-weight:900;color:#16a34a">${isTransfer?'🏦 Transferencia realizada':isCashLocal?'💵 Pago efectivo local':isCashDoorDelivered?'💵 Cobrado en domicilio':'✓ PAGÓ'}</div>
-                  <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
-                :isTransfer
-                  ?`<div style="font-size:13px;font-weight:700;color:#f59e0b">⚠️ Falta transferir</div>
+              ${motoNoCobra
+                ?`<div style="font-size:13px;font-weight:700;color:#3b82f6">🛵 Moto no cobra al cliente</div>
+                   <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
+                :pagado
+                  ?`<div style="font-size:15px;font-weight:900;color:#16a34a">${isTransfer?'🏦 Transferencia realizada':isCashLocal?'💵 Pago efectivo local':isCashDoorDelivered?'💵 Cobrado en domicilio':'✓ PAGÓ'}</div>
                     <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
-                  :motoOwe
-                    ?`<div style="font-size:14px;font-weight:700;color:#dc2626">Debe moto: $${fmt(trae)}</div>
-                      <div style="font-size:13px;color:#555;margin-top:2px">Total pedido: $${fmt(total)}</div>
-                      ${vuelto>0?`<div style="font-size:13px;font-weight:700;color:#92400e;margin-top:2px">Vuelto: $${fmt(vuelto)}</div>`:''}`
-                    :`<div style="font-size:13px;font-weight:700;color:#f59e0b">💵 Pendiente de cobro en domicilio</div>
-                      <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`}
+                  :isTransfer
+                    ?`<div style="font-size:13px;font-weight:700;color:#f59e0b">⚠️ Falta transferir</div>
+                      <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
+                    :motoOwe
+                      ?`<div style="font-size:14px;font-weight:700;color:#dc2626">Debe moto: $${fmt(trae)}</div>
+                        <div style="font-size:13px;color:#555;margin-top:2px">Total pedido: $${fmt(total)}</div>
+                        ${vuelto>0?`<div style="font-size:13px;font-weight:700;color:#92400e;margin-top:2px">Vuelto: $${fmt(vuelto)}</div>`:''}`
+                      :`<div style="font-size:13px;font-weight:700;color:#f59e0b">💵 Pendiente de cobro en domicilio</div>
+                        <div style="font-size:12px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`}
             </div>
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
@@ -1013,81 +1027,7 @@ function deliveryHTML(){
     </div>`;
   }
 
-  // ── VIAJES EXTRA ──────────────────────────────
-  h+=`<div class="card" style="margin-top:6px;border:2px solid #7c3aed">
-    <div class="ct" style="color:#5b21b6">🛵 Viajes extra de la moto</div>
-    <p style="font-size:11px;color:#888;margin-bottom:10px">Viajes que no son pedidos (Flex, mandados, etc.). Podés marcar si se pagan para que sumen al total de la moto.</p>
-    ${dayTrips.map(t=>`
-    <div style="border:1px solid #ede9fe;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${t.status==='entregado'||t.status==='moto-retiro'?'#f0fdf4':t.status==='en-camino'?'#eff6ff':'#fafafa'}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px;color:#5b21b6">${t.name||'Sin nombre'}</div>
-          <div style="margin-top:6px">
-            <select onchange="onTripStatus(${t.id},this.value)" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #c4b5fd;background:#faf5ff;cursor:pointer;font-family:inherit">
-              <option value="pendiente"   ${t.status==='pendiente'?'selected':''}>⏳ Pendiente</option>
-              <option value="en-camino"   ${t.status==='en-camino'?'selected':''}>🛵 En camino</option>
-              <option value="entregado"   ${t.status==='entregado'?'selected':''}>✅ Entregado</option>
-              <option value="moto-retiro" ${t.status==='moto-retiro'?'selected':''}>📦 Moto retiró</option>
-              <option value="cancelado"   ${t.status==='cancelado'?'selected':''}>❌ Cancelado</option>
-            </select>
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <button onclick="deleteTrip(${t.id})" style="background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;font-size:15px;padding:3px 8px" title="Eliminar viaje">🗑️</button>
-          ${t.paid?`<div style="font-weight:700;color:#16a34a;font-size:13px">💰 $${fmt(t.amount)}</div>`:''}
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#5b21b6;cursor:pointer">
-          <input type="checkbox" ${t.paid?'checked':''} onchange="onTripPaid(${t.id},this.checked)" style="width:16px;height:16px;accent-color:#7c3aed">
-          Viaje se paga
-        </label>
-        ${t.paid?`<input type="number" value="${t.amount||''}" placeholder="Monto $" min="0"
-          oninput="onTripAmount(${t.id},this.value)"
-          onclick="event.stopPropagation()"
-          style="width:110px;padding:5px 8px;border:1px solid #c4b5fd;border-radius:6px;font-size:13px;font-family:inherit">`:'' }
-      </div>
-    </div>`).join('')}
-    <button class="btn bfw" style="background:#7c3aed;color:white;margin-top:4px" onclick="addTrip('${dayStr}')">＋ Agregar viaje</button>
-  </div>`;
-
   return h;
-}
-
-// ── TRIPS ─────────────────────────────────────
-function addTrip(date){
-  const name=prompt('Nombre del viaje (ej: Flex, Mandado, Envío propio):');
-  if(!name||!name.trim()) return;
-  const trip={id:Date.now(),date,name:name.trim(),status:'pendiente',paid:false,amount:0};
-  db.trips=db.trips||[];
-  db.trips.push(trip);
-  drMerge(f=>{f.trips=db.trips;return f;}).then(m=>{db=m;render();}).catch(()=>render());
-}
-
-async function onTripStatus(id,val){
-  const t=(db.trips||[]).find(x=>x.id===id);if(!t)return;
-  t.status=val;
-  const m=await drMerge(f=>{f.trips=db.trips;return f;});
-  db=m;render();
-}
-
-function onTripPaid(id,checked){
-  const t=(db.trips||[]).find(x=>x.id===id);if(!t)return;
-  t.paid=checked;
-  drMerge(f=>{f.trips=db.trips;return f;}).then(m=>{db=m;render();}).catch(()=>render());
-}
-
-function onTripAmount(id,val){
-  const t=(db.trips||[]).find(x=>x.id===id);if(!t)return;
-  t.amount=parseFloat(val)||0;
-  drMerge(f=>{f.trips=db.trips;return f;}).then(m=>{db=m;}).catch(()=>{});
-}
-
-async function deleteTrip(id){
-  if(!confirm('¿Eliminar este viaje?')) return;
-  db.trips=(db.trips||[]).filter(x=>x.id!==id);
-  const m=await drMerge(f=>{f.trips=db.trips;return f;});
-  db=m;render();
 }
 
 async function onDelStatus(id,val){
@@ -1157,15 +1097,6 @@ function motoHTML(){
     if(dt.getFullYear()===yr&&dt.getMonth()===mo){
       const k=dkDate(o.date);
       costByDay[k]=(costByDay[k]||0)+motoZonePrice(o.dZona||o.zoneName||'');
-    }
-  });
-  // Add paid trips
-  (db.trips||[]).forEach(t=>{
-    if(!t.paid) return;
-    const dt=parseArgDate(t.date);
-    if(dt.getFullYear()===yr&&dt.getMonth()===mo){
-      const k=dkDate(t.date);
-      costByDay[k]=(costByDay[k]||0)+(parseFloat(t.amount)||0);
     }
   });
 
@@ -1558,6 +1489,27 @@ function updTots(){
 function updCh(){const el=document.getElementById('ch');if(el)el.innerHTML=chHTML();}
 function addI(){S().items.push({qty:'',desc:'',price:'',sub:0});render();}
 function remI(i){if(S().items.length>1){S().items.splice(i,1);render();}}
+
+// ── ORDER NUM UI ──────────────────────────────
+function updOrderNumUI(){
+  const num=(S().orderNum||'').trim();
+  const isText=num!==''&&isNaN(Number(num));
+  const el=document.getElementById('moto-no-cobra-block');
+  if(!el) return;
+  if(isText){
+    el.innerHTML=`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="motoNoCobra" ${S().motoNoCobra?'checked':''} onchange="S().motoNoCobra=this.checked" style="width:18px;height:18px;accent-color:#3b82f6;cursor:pointer">
+      <label for="motoNoCobra" style="font-size:13px;font-weight:600;color:#1d4ed8;cursor:pointer">🛵 La moto no tiene que cobrar nada al cliente</label>
+    </div>`;
+  } else {
+    el.innerHTML='';
+    S().motoNoCobra=false;
+  }
+  const addrLbl=document.getElementById('addr-lbl');
+  const addrInp=document.getElementById('addr-inp');
+  if(addrLbl) addrLbl.innerHTML='DIRECCIÓN '+(isText?'':'<span style="color:var(--pk)">*</span>');
+  if(addrInp) addrInp.placeholder=isText?'Dirección (opcional)':'Dirección de envío (obligatorio)';
+}
 
 // ── CALCULADORA ───────────────────────────────
 let calcExpr='',calcVal='0';
