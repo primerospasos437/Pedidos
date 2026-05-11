@@ -1385,11 +1385,11 @@ function calcHTML(){
   <button class="calc-float" onclick="showCalc=!showCalc;render()" title="Calculadora">🧮</button>
   ${showCalc?`<div class="calc-wrap">
     <div class="calc-display">
-      <div class="calc-expr">${calcExpr||'&nbsp;'}</div>
-      <div class="calc-val">${calcVal}</div>
+      <div class="calc-expr" id="calc-expr">${calcExpr||'\u00a0'}</div>
+      <div class="calc-val" id="calc-val">${calcVal}</div>
     </div>
     <div class="calc-grid">
-      <button class="calc-btn clr" onclick="calcExpr='';calcVal='0';document.querySelector('.calc-val').textContent='0';document.querySelector('.calc-expr').textContent=''">C</button>
+      <button class="calc-btn clr" onclick="calcClr()">C</button>
       <button class="calc-btn op" onclick="calcDel()">⌫</button>
       <button class="calc-btn op" onclick="calcPercent()">%</button>
       <button class="calc-btn op" onclick="calcOp('/')">÷</button>
@@ -1412,31 +1412,32 @@ function calcHTML(){
   </div>`:''}`;
 }
 function calcNum(n){
-  if(calcVal==='0'&&n!=='.')calcVal=n;
-  else calcVal+=n;
-  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+  if(calcVal==='0'&&n!=='.')calcVal=n;else calcVal+=n;
+  calcRender();
 }
 function calcOp(op){
-  calcExpr+=(calcVal||'0')+op;calcVal='0';
-  document.querySelector('.calc-expr')&&(document.querySelector('.calc-expr').textContent=calcExpr);
-  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+  calcExpr+=(calcVal||'0')+op;calcVal='0';calcRender();
 }
 function calcDel(){
-  if(calcVal.length>1)calcVal=calcVal.slice(0,-1);else calcVal='0';
-  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+  if(calcVal.length>1)calcVal=calcVal.slice(0,-1);else calcVal='0';calcRender();
 }
 function calcPercent(){
-  calcVal=String(parseFloat(calcVal||0)/100);
-  document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
+  calcVal=String(Math.round((parseFloat(calcVal||0)/100)*10000)/10000);calcRender();
 }
 function calcEq(){
   try{
     const expr=calcExpr+(calcVal||'0');
     const res=Function('"use strict";return ('+expr+')')();
     calcVal=String(Math.round(res*100)/100);calcExpr='';
-    document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent=calcVal);
-    document.querySelector('.calc-expr')&&(document.querySelector('.calc-expr').textContent='');
-  }catch(e){calcVal='Error';document.querySelector('.calc-val')&&(document.querySelector('.calc-val').textContent='Error');}
+  }catch(e){calcVal='Error';calcExpr='';}
+  calcRender();
+}
+function calcClr(){calcExpr='';calcVal='0';calcRender();}
+function calcRender(){
+  const ve=document.getElementById('calc-val');
+  const ee=document.getElementById('calc-expr');
+  if(ve)ve.textContent=calcVal;
+  if(ee)ee.textContent=calcExpr||'\u00a0';
 }
 
 // ── PRESUPUESTO ───────────────────────────────
