@@ -407,7 +407,7 @@ async function saveOP(shouldPrint){
   const isTextOrder = (S().orderNum?.trim()||'')!=='' && isNaN(Number(S().orderNum?.trim()));
   if(!isTextOrder && !S().address.trim()){alert('La dirección es obligatoria.');return;}
   const items=S().items.filter(i=>i.desc.trim());
-  if(!items.length){alert('Agregá al menos un artículo.');return;}
+  if(!isTextOrder && !items.length){alert('Agregá al menos un artículo.');return;}
   if(!tok&&!confirm('No conectado a Drive. ¿Guardar solo localmente?')) return;
 
   const isEdit=!!S().editing;
