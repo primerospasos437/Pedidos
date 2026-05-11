@@ -203,7 +203,7 @@ function newFrm(){
 }
 
 // ── ESTADO ────────────────────────────────────
-let db={clients:[],orders:[],budgets:[],config:{zones:cp(DEF_Z)},motoPayments:{}};
+let db={clients:[],orders:[],budgets:[],trips:[],config:{zones:cp(DEF_Z)},motoPayments:{}};
 let tab='order';
 let modal=null;
 let delDate=new Date(); delDate.setHours(0,0,0,0);
@@ -360,6 +360,7 @@ async function syncD(){
       p.config.zones=p.config.zones?.length?p.config.zones:cp(DEF_Z);
       p.motoPayments=p.motoPayments||{};
       p.budgets=p.budgets||[];
+      p.trips=p.trips||[];
       db=p;
       setD('ok',`✅ Drive — ${db.orders.length} pedidos`);
     } else {
@@ -872,12 +873,15 @@ function deliveryHTML(){
     if(o.dStatus==='entregado'||o.dStatus==='retirado') totalEntreg++;
     if(o.dStatus==='pendiente'||o.dStatus==='retira-cliente') totalPend+=(o.total||0);
     const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
-    // retira-cliente and retirado don't count for moto payment
     const isPickup = o.dStatus==='retira-cliente'||o.dStatus==='retirado';
     if(!isFlex && !isPickup && o.dStatus!=='cancelado'){
       totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
     }
   });
+  // Add paid trips for this day
+  const dayStr=delDate.toLocaleDateString('es-AR');
+  const dayTrips=(db.trips||[]).filter(t=>t.date===dayStr);
+  dayTrips.forEach(t=>{ if(t.paid) totalMoto+=(parseFloat(t.amount)||0); });
 
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
     <button class="btn bs bsm" onclick="dPrevDay()">◀</button>
@@ -1008,7 +1012,82 @@ function deliveryHTML(){
         <span>🛵 A pagar moto</span><span style="font-weight:800;color:var(--pk2)">$${fmt(totalMoto)}</span></div>
     </div>`;
   }
+
+  // ── VIAJES EXTRA ──────────────────────────────
+  h+=`<div class="card" style="margin-top:6px;border:2px solid #7c3aed">
+    <div class="ct" style="color:#5b21b6">🛵 Viajes extra de la moto</div>
+    <p style="font-size:11px;color:#888;margin-bottom:10px">Viajes que no son pedidos (Flex, mandados, etc.). Podés marcar si se pagan para que sumen al total de la moto.</p>
+    ${dayTrips.map(t=>`
+    <div style="border:1px solid #ede9fe;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${t.status==='entregado'||t.status==='moto-retiro'?'#f0fdf4':t.status==='en-camino'?'#eff6ff':'#fafafa'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:#5b21b6">${t.name||'Sin nombre'}</div>
+          <div style="margin-top:6px">
+            <select onchange="onTripStatus(${t.id},this.value)" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #c4b5fd;background:#faf5ff;cursor:pointer;font-family:inherit">
+              <option value="pendiente"   ${t.status==='pendiente'?'selected':''}>⏳ Pendiente</option>
+              <option value="en-camino"   ${t.status==='en-camino'?'selected':''}>🛵 En camino</option>
+              <option value="entregado"   ${t.status==='entregado'?'selected':''}>✅ Entregado</option>
+              <option value="moto-retiro" ${t.status==='moto-retiro'?'selected':''}>📦 Moto retiró</option>
+              <option value="cancelado"   ${t.status==='cancelado'?'selected':''}>❌ Cancelado</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <button onclick="deleteTrip(${t.id})" style="background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;font-size:15px;padding:3px 8px" title="Eliminar viaje">🗑️</button>
+          ${t.paid?`<div style="font-weight:700;color:#16a34a;font-size:13px">💰 $${fmt(t.amount)}</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#5b21b6;cursor:pointer">
+          <input type="checkbox" ${t.paid?'checked':''} onchange="onTripPaid(${t.id},this.checked)" style="width:16px;height:16px;accent-color:#7c3aed">
+          Viaje se paga
+        </label>
+        ${t.paid?`<input type="number" value="${t.amount||''}" placeholder="Monto $" min="0"
+          oninput="onTripAmount(${t.id},this.value)"
+          onclick="event.stopPropagation()"
+          style="width:110px;padding:5px 8px;border:1px solid #c4b5fd;border-radius:6px;font-size:13px;font-family:inherit">`:'' }
+      </div>
+    </div>`).join('')}
+    <button class="btn bfw" style="background:#7c3aed;color:white;margin-top:4px" onclick="addTrip('${dayStr}')">＋ Agregar viaje</button>
+  </div>`;
+
   return h;
+}
+
+// ── TRIPS ─────────────────────────────────────
+function addTrip(date){
+  const name=prompt('Nombre del viaje (ej: Flex, Mandado, Envío propio):');
+  if(!name||!name.trim()) return;
+  const trip={id:Date.now(),date,name:name.trim(),status:'pendiente',paid:false,amount:0};
+  db.trips=db.trips||[];
+  db.trips.push(trip);
+  drMerge(f=>{f.trips=db.trips;return f;}).then(m=>{db=m;render();}).catch(()=>render());
+}
+
+async function onTripStatus(id,val){
+  const t=(db.trips||[]).find(x=>x.id===id);if(!t)return;
+  t.status=val;
+  const m=await drMerge(f=>{f.trips=db.trips;return f;});
+  db=m;render();
+}
+
+function onTripPaid(id,checked){
+  const t=(db.trips||[]).find(x=>x.id===id);if(!t)return;
+  t.paid=checked;
+  drMerge(f=>{f.trips=db.trips;return f;}).then(m=>{db=m;render();}).catch(()=>render());
+}
+
+function onTripAmount(id,val){
+  const t=(db.trips||[]).find(x=>x.id===id);if(!t)return;
+  t.amount=parseFloat(val)||0;
+  drMerge(f=>{f.trips=db.trips;return f;}).then(m=>{db=m;}).catch(()=>{});
+}
+
+async function deleteTrip(id){
+  if(!confirm('¿Eliminar este viaje?')) return;
+  db.trips=(db.trips||[]).filter(x=>x.id!==id);
+  const m=await drMerge(f=>{f.trips=db.trips;return f;});
+  db=m;render();
 }
 
 async function onDelStatus(id,val){
@@ -1078,6 +1157,15 @@ function motoHTML(){
     if(dt.getFullYear()===yr&&dt.getMonth()===mo){
       const k=dkDate(o.date);
       costByDay[k]=(costByDay[k]||0)+motoZonePrice(o.dZona||o.zoneName||'');
+    }
+  });
+  // Add paid trips
+  (db.trips||[]).forEach(t=>{
+    if(!t.paid) return;
+    const dt=parseArgDate(t.date);
+    if(dt.getFullYear()===yr&&dt.getMonth()===mo){
+      const k=dkDate(t.date);
+      costByDay[k]=(costByDay[k]||0)+(parseFloat(t.amount)||0);
     }
   });
 
