@@ -1005,15 +1005,16 @@ function deliveryHTML(){
             </div>
           </div>
         </div>
-        <!-- BOTTOM: editar + moto -->
+        <!-- BOTTOM: moto label | print (center) | editar+eliminar -->
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-          <div style="${isFlex?'color:#7c3aed;font-size:12px;font-weight:700':isPickup?'color:#3b82f6;font-size:12px;font-weight:700':'color:var(--pk2);font-size:12px;font-weight:700'}">
+          <div style="${isFlex?'color:#7c3aed;font-size:12px;font-weight:700':isPickup?'color:#3b82f6;font-size:12px;font-weight:700':o.noEnvio?'color:#f59e0b;font-size:12px;font-weight:700':'color:var(--pk2);font-size:12px;font-weight:700'}">
             ${isFlex?'🟣 FLEX — no suma a moto':isPickup?'🏪 Retira el cliente — no suma a moto':o.noEnvio?'📦 No envío — no suma a moto':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
           </div>
+          <button onclick="printO(db.orders.find(x=>x.id===${o.id}))" title="Imprimir pedido" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:17px;line-height:1">🖨️</button>
           <div style="display:flex;gap:6px;align-items:center">
             ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
             <button class="btn bs bsm" onclick="editOrder(${o.id})" style="font-size:12px;padding:6px 12px">✏️ Editar</button>
-            <button class="btn bsm" onclick="confirmDeleteOrder(${o.id},'${(o.address||o.name||'este pedido').replace(/'/g,"&#39;")}')" style="font-size:15px;padding:5px 10px;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;cursor:pointer" title="Eliminar pedido">🗑️</button>
+            <button class="btn bsm" onclick="confirmDeleteOrder(${o.id},'${(o.address||o.name||'este pedido').replace(/'/g,'&#39;')}')" style="font-size:15px;padding:5px 10px;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;cursor:pointer" title="Eliminar pedido">🗑️</button>
           </div>
         </div>
       </div>`;
