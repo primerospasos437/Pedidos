@@ -685,7 +685,7 @@ function getDelOrders(){
   });
 }
 function dPrevDay(){delDate.setDate(delDate.getDate()-1);render();}
-function dNextDay(){const nx=new Date(delDate);nx.setDate(nx.getDate()+1);if(nx<=todayD){delDate=nx;render();}}
+function dNextDay(){delDate=new Date(delDate);delDate.setDate(delDate.getDate()+1);render();}
 function dGoToday(){delDate=new Date();delDate.setHours(0,0,0,0);render();}
 
 // ── MOTO HELPERS ──────────────────────────────
@@ -882,6 +882,9 @@ ${lastO?`<button class="btn bs bfw bsm" style="margin-bottom:4px" onclick="print
 // ── DELIVERY TAB ──────────────────────────────
 function deliveryHTML(){
   const isToday=delDate.toLocaleDateString('es-AR')===hoy();
+  const tomorrow=new Date(todayD);tomorrow.setDate(tomorrow.getDate()+1);
+  const isTomorrow=delDate.toLocaleDateString('es-AR')===tomorrow.toLocaleDateString('es-AR');
+  const dayLabel=isToday?'📅 Hoy — ':isTomorrow?'📅 Mañana — ':'📅 ';
   const dateStr=delDate.toLocaleDateString('es-AR');
   const orders=getDelOrders();
   const zz=getZZ();
@@ -901,10 +904,10 @@ function deliveryHTML(){
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
     <button class="btn bs bsm" onclick="dPrevDay()">◀</button>
     <div style="flex:1;text-align:center">
-      <div style="font-size:15px;font-weight:700;color:var(--pk2)">${isToday?'📅 Hoy — ':' '}${dateStr}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--pk2)">${dayLabel}${dateStr}</div>
       <div style="font-size:11px;color:#999;margin-top:2px">${orders.length} pedido(s) · Total: <strong style="color:var(--pk2)">$${fmt(totalDia)}</strong></div>
     </div>
-    <button class="btn bs bsm" onclick="dNextDay()" ${isToday?'disabled style="opacity:.3"':''}>▶</button>
+    <button class="btn bs bsm" onclick="dNextDay()">▶</button>
   </div>
   ${!isToday?`<button class="btn bs bsm" style="width:100%;margin-bottom:10px" onclick="dGoToday()">↩️ Volver a hoy</button>`:''}
   <input class="sb" type="text" value="${delQ}" placeholder="🔍 Buscar por número, dirección, teléfono..." oninput="delQ=this.value;render()">`;
