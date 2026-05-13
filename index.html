@@ -679,7 +679,11 @@ function acRef(){
 // ── DELIVERY HELPERS ──────────────────────────
 function getDelOrders(){
   const dateStr=delDate.toLocaleDateString('es-AR');
-  return db.orders.filter(o=>o.date===dateStr).sort((a,b)=>{
+  const delKey=dkDate(delDate); // YYYY-MM-DD for reliable comparison
+  return db.orders.filter(o=>{
+    if(!o.date) return false;
+    return dkDate(o.date)===delKey;
+  }).sort((a,b)=>{
     const na=parseInt(a.orderNum)||999999,nb=parseInt(b.orderNum)||999999;
     return na===nb?(a.savedAt||'').localeCompare(b.savedAt||''):na-nb;
   });
