@@ -395,6 +395,8 @@ async function drMerge(fn){
       fresh.clients=fresh.clients||[];fresh.orders=fresh.orders||[];
       fresh.config=fresh.config||{};fresh.config.zones=db.config.zones;
       fresh.motoPayments=fresh.motoPayments||{};
+      fresh.budgets=fresh.budgets||[];
+      fresh.trips=fresh.trips||[];
     }catch(e){}
   }
   const merged=fn(fresh);
@@ -599,6 +601,15 @@ function printO(o){
   <div class="tkt-f">¡Gracias por tu compra! 🎀</div>
 </div>`;
   window.print();
+}
+
+async function saveAndWA(){
+  const items=S().items.filter(i=>i.desc.trim());
+  const isTextOrder=(S().orderNum?.trim()||'')!==''&&isNaN(Number(S().orderNum?.trim()));
+  if(!isTextOrder&&!S().address.trim()){alert('La dirección es obligatoria.');return;}
+  if(!isTextOrder&&!items.length){alert('Agregá al menos un artículo.');return;}
+  await saveOP(false);
+  sendWA();
 }
 
 // ── WHATSAPP ──────────────────────────────────
@@ -877,7 +888,7 @@ function orderHTML(){
   <button class="btn bp bfw" onclick="saveOP(false)">💾 ${S().editing?'Actualizar pedido':'Guardar pedido'}</button>
   <button class="btn bd" style="padding:13px 16px;flex-shrink:0" onclick="saveOP(true)">🖨️ Guardar e imprimir</button>
 </div>
-<button class="btn bfw bsm" style="margin-bottom:8px;background:#25d366;color:white;font-size:14px" onclick="sendWA()">📲 Enviar por WhatsApp</button>
+<button class="btn bfw bsm" style="margin-bottom:8px;background:#25d366;color:white;font-size:14px" onclick="saveAndWA()">📲 Guardar y enviar por WhatsApp</button>
 <button class="btn bs bfw bsm" style="margin-bottom:8px;border:1px dashed var(--pk)" onclick="clearSlot()">🗑️ Nuevo pedido — borrar este formulario</button>
 ${lastO?`<button class="btn bs bfw bsm" style="margin-bottom:4px" onclick="printO(lastO)">↩️ Reimprimir último (${lastO.address||lastO.name})</button>`:''}
 <div style="height:20px"></div>`;
@@ -1074,6 +1085,14 @@ function deliveryHTML(){
   </div>`;
 
   return h;
+}
+
+function filterHist(q){
+  const rows=document.querySelectorAll('.hist-row');
+  const term=(q||'').toLowerCase().trim();
+  rows.forEach(r=>{
+    r.style.display=(!term||r.dataset.search.includes(term))?'':'none';
+  });
 }
 
 async function onDelStatus(id,val){
@@ -1322,10 +1341,11 @@ function cliDetailHTML(c){
 </div>
 <div class="card">
   <div class="ct">📦 Historial de pedidos (${orders.length})</div>
+  <input type="text" id="hist-search" placeholder="🔍 Buscar por dirección, nombre, fecha, nro..." oninput="filterHist(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--pkb);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:8px">
   ${!orders.length?'<div style="text-align:center;color:#ccc;padding:20px">Sin pedidos registrados</div>':''}
   ${orders.map(o=>{
     const ip=o.paid||(!!(parseFloat(o.payment)||0)&&(parseFloat(o.payment)||0)>=(o.total||0));
-    return `<div style="padding:10px 0;border-bottom:1px solid var(--pkb,#f0d0e0);display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+    return `<div class="hist-row" data-search="${[o.orderNum,o.date,o.address,o.name,o.phone].filter(Boolean).join(' ').toLowerCase()}" style="padding:10px 0;border-bottom:1px solid var(--pkb,#f0d0e0);display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
       <div>
         <div style="font-size:13px;font-weight:600">
           ${o.orderNum?`<span style="color:var(--pk2,#a02358)">#${o.orderNum}</span> · `:''} ${o.date}
