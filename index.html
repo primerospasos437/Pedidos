@@ -923,15 +923,7 @@ function deliveryHTML(){
   const zz=getZZ();
 
   let totalDia=0,totalMoto=0,totalPend=0,totalEntreg=0;
-  const filteredOrders = delSubTab==='todos' ? orders
-    : delSubTab==='entregado' ? orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto')
-    : orders.filter(o=>o.dStatus===delSubTab);
-
-  if(!filteredOrders.length&&orders.length){
-    h+=`<div style="text-align:center;color:#ccc;padding:20px;font-size:13px">Sin pedidos en esta categoría</div>`;
-  }
-
-  filteredOrders.forEach(o=>{
+  orders.forEach(o=>{
     totalDia+=(o.total||0);
     if(o.dStatus==='entregado'||o.dStatus==='retirado') totalEntreg++;
     if(o.dStatus==='pendiente'||o.dStatus==='retira-cliente') totalPend+=(o.total||0);
@@ -941,6 +933,10 @@ function deliveryHTML(){
       totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
     }
   });
+
+  const filteredOrders = delSubTab==='todos' ? orders
+    : delSubTab==='entregado' ? orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto')
+    : orders.filter(o=>o.dStatus===delSubTab);
 
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
     <button class="btn bs bsm" onclick="dPrevDay()">◀</button>
@@ -967,15 +963,15 @@ function deliveryHTML(){
   </div>
   <input class="sb" type="text" value="${delQ}" placeholder="🔍 Buscar por número, dirección, teléfono..." oninput="delQ=this.value;render()">`;
 
-  const filtered=delQ?orders.filter(o=>
+  const filtered=delQ?filteredOrders.filter(o=>
     (o.orderNum&&o.orderNum.includes(delQ))||
     o.address?.toLowerCase().includes(delQ.toLowerCase())||
     o.phone?.includes(delQ)||
     o.name?.toLowerCase().includes(delQ.toLowerCase())
-  ):orders;
+  ):filteredOrders;
 
   if(!filtered.length){
-    h+=`<div class="empty"><div class="eico">🛵</div><div>No hay pedidos para este día</div></div>`;
+    h+=`<div class="empty"><div class="eico">🛵</div><div>${orders.length&&delSubTab!=='todos'?'Sin pedidos en esta categoría':'No hay pedidos para este día'}</div></div>`;
   } else {
     filtered.forEach(o=>{
       const est=o.dStatus||'pendiente';
