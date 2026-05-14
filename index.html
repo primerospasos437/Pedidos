@@ -96,7 +96,7 @@ textarea{resize:vertical;min-height:58px}
 .pres-tab.active{background:white;color:#92400e;border-bottom-color:white}
 
 /* DELIVERY */
-.drow{background:white;border:1px solid var(--pkb);border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:4px solid #f59e0b}
+.drow{background:white;border:1px solid var(--pkb);border-radius:10px;padding:12px 14px;margin-bottom:18px;border-left:4px solid #f59e0b}
 .drow.entr{border-left-color:#16a34a}.drow.cami{border-left-color:#3b82f6}.drow.canc{border-left-color:#9ca3af;opacity:.7}
 .desel{font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;border:none;font-family:inherit;cursor:pointer}
 .de-pendiente{background:#fef3c7;color:#92400e}.de-entregado{background:#dcfce7;color:#166534}
@@ -133,9 +133,9 @@ textarea{resize:vertical;min-height:58px}
 @media print{
   body>*:not(#pra){display:none !important}
   #pra{display:block !important}
-  @page{size:110mm 170mm;margin:0}
+  @page{size:110mm 170mm;margin:10mm 5mm 5mm 5mm}
 }
-.tkt{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.4;color:black;padding:4mm 4mm;border:3pt solid magenta;border-radius:2mm}
+.tkt{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.4;color:black;padding:2mm 2mm;border:3pt solid magenta;border-radius:2mm}
 .tkt-h{font-size:13pt;font-weight:bold;color:#0891b2;text-align:center}
 .tkt-s{font-size:9pt;text-align:center;margin-bottom:1mm}
 .tkt hr{border:none;border-top:.5pt solid #0891b2;margin:1.5mm 0}
@@ -150,8 +150,8 @@ textarea{resize:vertical;min-height:58px}
 .tkt table th:nth-child(1),.tkt table td:nth-child(1){width:8%}
 .tkt table th:nth-child(3),.tkt table td:nth-child(3){width:19%}
 .tkt table th:nth-child(4),.tkt table td:nth-child(4){width:19%}
-.tkt-tot{text-align:right;border-top:.5pt solid #0891b2;padding-top:1.5mm;font-size:10pt}
-.tkt-T{font-size:13pt;font-weight:bold;color:#0891b2}
+.tkt-tot{text-align:right;border-top:.5pt solid #0891b2;padding-top:1.5mm;font-size:9pt}
+.tkt-T{font-size:12pt;font-weight:bold;color:#0891b2}
 .tkt-f{margin-top:2mm;font-size:8.5pt;text-align:center;color:#0891b2}
 @media(max-width:500px){.g2{grid-template-columns:1fr}}
 </style>
@@ -207,6 +207,7 @@ let db={clients:[],orders:[],budgets:[],trips:[],config:{zones:cp(DEF_Z)},motoPa
 let tab='order';
 let modal=null;
 let delDate=new Date(); delDate.setHours(0,0,0,0);
+let delSubTab='todos'; // todos | pendiente | proximo | en-camino | entregado
 const todayD=new Date(); todayD.setHours(0,0,0,0);
 let delQ='';
 let cliMode='list';
@@ -548,19 +549,30 @@ function printO(o){
   const ch=(o.payment||0)-(o.total||0);
 
   // Payment status block for print
+  // Base: tkt-tot is 9pt, TOTAL is 9pt inline, transfer label = 11pt (+2), abona = 11pt (+2), vuelto = 10pt (+1)
   let pl;
   if(fullyPaid){
     const label = isTransfer ? '🏦 Pago transferencia' : isCashLocal ? '💵 Pago efectivo local' : '💵 Cobrado en domicilio';
-    pl = `<div style="font-size:11pt;font-weight:700;color:#065f46">${label}</div>
-          <div style="font-size:12pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>`;
+    if(isTransfer){
+      pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
+            <div style="font-size:11pt;font-weight:900;color:#065f46">${label}</div>`;
+    } else {
+      pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
+            <div style="font-size:11pt;font-weight:700;color:#065f46">${label}</div>`;
+    }
   } else if(isTransfer){
-    pl = `<div style="font-weight:700;color:#f59e0b">⚠️ Falta transferir</div>
-          <div style="font-size:12pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>`;
+    pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
+          <div style="font-size:11pt;font-weight:900;color:#0891b2">🏦 Pago con transferencia</div>`;
   } else {
-    // Cash at door, not yet delivered
-    pl = `<div style="font-size:12pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
-          <div style="font-size:10pt;color:#555">💵 Abona en domicilio</div>
-          ${o.payment?`<div style="color:#15803d;font-weight:600">Abona: $${fmt(o.payment)}</div>${ch>=0?`<div style="font-weight:700;color:#b91c1c">Vuelto: $${fmt(Math.abs(ch))}</div>`:''}`:'' }`;
+    // Cash at door — always show Abona con: box (filled or blank for handwriting)
+    pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
+          <div style="display:flex;align-items:center;gap:4mm;margin-top:1.5mm">
+            <span style="font-size:11pt;font-weight:900;color:#15803d">Abona con:</span>
+            ${o.payment
+              ?`<span style="font-size:11pt;font-weight:900;color:#15803d">$${fmt(o.payment)}</span>
+                ${ch>=0?`<span style="font-size:10pt;font-weight:700;color:#b91c1c">  Vuelto: $${fmt(Math.abs(ch))}</span>`:''}`
+              :`<span style="display:inline-block;width:28mm;height:6mm;border:.8pt solid #555;border-radius:1mm;vertical-align:middle"></span>`}
+          </div>`;
   }
 
   document.getElementById('pra').innerHTML=`
@@ -596,7 +608,7 @@ function printO(o){
   </tbody></table>
   ${o.observations?`<div style="font-size:9pt;margin-bottom:2mm"><strong>Obs:</strong> ${o.observations}</div>`:''}
   <div class="tkt-tot">
-    <div>Mensajería (${o.zoneName||'Sin envío'}): $${fmt(o.shipping)}</div>
+    <div style="font-size:8pt">Mensajería (${o.zoneName||'Sin envío'}): $${fmt(o.shipping)}</div>
     ${pl}
   </div>
   <div style="font-size:8pt;margin-top:2.5mm;text-align:center;font-style:italic;color:#333">Le rogamos revisar el pedido y ante cualquier problema comunicarse en el momento.</div>
@@ -911,7 +923,15 @@ function deliveryHTML(){
   const zz=getZZ();
 
   let totalDia=0,totalMoto=0,totalPend=0,totalEntreg=0;
-  orders.forEach(o=>{
+  const filteredOrders = delSubTab==='todos' ? orders
+    : delSubTab==='entregado' ? orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto')
+    : orders.filter(o=>o.dStatus===delSubTab);
+
+  if(!filteredOrders.length&&orders.length){
+    h+=`<div style="text-align:center;color:#ccc;padding:20px;font-size:13px">Sin pedidos en esta categoría</div>`;
+  }
+
+  filteredOrders.forEach(o=>{
     totalDia+=(o.total||0);
     if(o.dStatus==='entregado'||o.dStatus==='retirado') totalEntreg++;
     if(o.dStatus==='pendiente'||o.dStatus==='retira-cliente') totalPend+=(o.total||0);
@@ -931,6 +951,20 @@ function deliveryHTML(){
     <button class="btn bs bsm" onclick="dNextDay()">▶</button>
   </div>
   ${!isToday?`<button class="btn bs bsm" style="width:100%;margin-bottom:10px" onclick="dGoToday()">↩️ Volver a hoy</button>`:''}
+
+  <!-- SUB-TABS -->
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;overflow-x:auto;padding-bottom:2px">
+    ${[
+      {k:'todos',   label:'Todos',           count: orders.length},
+      {k:'pendiente',label:'⏳ Pendientes',  count: orders.filter(o=>o.dStatus==='pendiente').length},
+      {k:'proximo', label:'🔜 Próx. a salir',count: orders.filter(o=>o.dStatus==='proximo').length},
+      {k:'en-camino',label:'🛵 En camino',   count: orders.filter(o=>o.dStatus==='en-camino').length},
+      {k:'entregado',label:'✅ Entregados',  count: orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto').length},
+    ].map(({k,label,count})=>`
+      <button onclick="delSubTab='${k}';render()" style="padding:6px 10px;border-radius:20px;border:1.5px solid ${delSubTab===k?'var(--pk)':'#ddd'};background:${delSubTab===k?'var(--pk)':'white'};color:${delSubTab===k?'white':'#555'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit">
+        ${label}${count>0?` <span style="background:${delSubTab===k?'rgba(255,255,255,.3)':'#eee'};border-radius:10px;padding:1px 6px;font-size:11px">${count}</span>`:''}
+      </button>`).join('')}
+  </div>
   <input class="sb" type="text" value="${delQ}" placeholder="🔍 Buscar por número, dirección, teléfono..." oninput="delQ=this.value;render()">`;
 
   const filtered=delQ?orders.filter(o=>
@@ -959,8 +993,8 @@ function deliveryHTML(){
       const trae = pagado?0:(abonaNum>0?abonaNum:total);
       // Moto owes money ONLY when en-camino and cash at door (not transfer, not local)
       const motoOwe = !isTransfer && !isCashLocal && est==='en-camino';
-      const cc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':est==='retira-cliente'?'cami':'';
-      const bc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'#16a34a':(est==='en-camino'||est==='retira-cliente')?'#3b82f6':est==='cancelado'?'#9ca3af':'#f59e0b';
+      const cc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':(est==='retira-cliente'||est==='proximo')?'cami':'';
+      const bc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'#16a34a':(est==='en-camino'||est==='retira-cliente')?'#3b82f6':est==='cancelado'?'#9ca3af':est==='proximo'?'#7c3aed':'#f59e0b';
       const zoneName=o.dZona||o.zoneName||'';
       const zonePrice=motoZonePrice(zoneName);
 
@@ -1016,6 +1050,7 @@ function deliveryHTML(){
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
                 <option value="pendiente"      ${est==='pendiente'?'selected':''}>⏳ Pendiente</option>
+                <option value="proximo"        ${est==='proximo'?'selected':''}>🔜 Próximo a salir</option>
                 <option value="retira-cliente" ${est==='retira-cliente'?'selected':''}>🏪 Retira el cliente</option>
                 <option value="en-camino"      ${est==='en-camino'?'selected':''}>🛵 En camino</option>
                 <option value="entregado"      ${est==='entregado'?'selected':''}>✅ Entregado</option>
