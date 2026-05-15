@@ -387,6 +387,37 @@ async function drWrite(data){
   }
 }
 
+async function ensureTok(){
+  // Check saved token is still valid (>2 min left)
+  try{
+    const saved=JSON.parse(localStorage.getItem('pp_token')||'null');
+    if(saved&&saved.token&&saved.expiry>Date.now()+120000){
+      tok=saved.token;return true;
+    }
+  }catch(e){}
+  // Try silent refresh and wait up to 5 seconds
+  return new Promise(resolve=>{
+    if(!tcli){resolve(false);return;}
+    const hint=localStorage.getItem('pp_account')||'';
+    try{
+      google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID,scope:SCOPES,prompt:'none',login_hint:hint,
+        callback:(r)=>{
+          if(r.error){tok=null;setD('off','Sesión expirada — reconectá');render();resolve(false);return;}
+          const expiry=Date.now()+((r.expires_in||3600)*1000);
+          tok=r.access_token;
+          localStorage.setItem('pp_token',JSON.stringify({token:tok,expiry}));
+          if(r.email) localStorage.setItem('pp_account',r.email);
+          setD('ok',`✅ Drive reconectado`);
+          const ms=expiry-Date.now()-120000;if(ms>0)setTimeout(silentRefresh,ms);
+          resolve(true);
+        }
+      }).requestAccessToken();
+    }catch(e){resolve(false);}
+    setTimeout(()=>resolve(false),6000); // timeout fallback
+  });
+}
+
 async function drMerge(fn){
   let fresh=cp(db);
   if(tok&&fid){
@@ -398,10 +429,34 @@ async function drMerge(fn){
       fresh.motoPayments=fresh.motoPayments||{};
       fresh.budgets=fresh.budgets||[];
       fresh.trips=fresh.trips||[];
-    }catch(e){}
+    }catch(e){
+      // If token expired during read, try to refresh and re-read
+      if(!tok){
+        const ok=await ensureTok();
+        if(ok&&fid){
+          try{
+            const r2=await gf(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`);
+            fresh=JSON.parse(await r2.text());
+            fresh.clients=fresh.clients||[];fresh.orders=fresh.orders||[];
+            fresh.config=fresh.config||{};fresh.config.zones=db.config.zones;
+            fresh.motoPayments=fresh.motoPayments||{};
+            fresh.budgets=fresh.budgets||[];fresh.trips=fresh.trips||[];
+          }catch(e2){}
+        }
+      }
+    }
   }
   const merged=fn(fresh);
+  // If we lost the token at any point, try to recover before writing
+  if(!tok&&fid) await ensureTok();
   if(tok) await drWrite(merged);
+  else {
+    // Saved locally only — update db in memory and warn
+    db=merged;
+    setD('off','⚠️ Guardado solo localmente — Drive desconectado');
+    render();
+    throw new Error('sin_drive');
+  }
   return merged;
 }
 
@@ -411,7 +466,13 @@ async function saveOP(shouldPrint){
   if(!isTextOrder && !S().address.trim()){alert('La dirección es obligatoria.');return;}
   const items=S().items.filter(i=>i.desc.trim());
   if(!isTextOrder && !items.length){alert('Agregá al menos un artículo.');return;}
-  if(!tok&&!confirm('No conectado a Drive. ¿Guardar solo localmente?')) return;
+
+  // If not connected, try silent refresh first before asking user
+  if(!tok){
+    setD('sync','Reconectando a Drive...');render();
+    const ok=await ensureTok();
+    if(!ok&&!confirm('No se pudo conectar a Drive. ¿Guardar solo localmente?')) return;
+  }
 
   const isEdit=!!S().editing;
   setD('sync',isEdit?'Actualizando...':'Guardando...');
@@ -450,10 +511,17 @@ async function saveOP(shouldPrint){
     }
     render();
     if(shouldPrint) setTimeout(()=>printO(lastO),80);
-  }catch(e){setD('off','Error: '+e.message);render();}
+  }catch(e){
+    if(e.message==='sin_drive'){
+      // Already saved locally and warned — just update state
+      lastO=db.orders[db.orders.length-1]||lastO;
+      slots[si]=newFrm();render();
+      if(shouldPrint) setTimeout(()=>printO(lastO),80);
+    } else {
+      setD('off','Error: '+e.message);render();
+    }
+  }
 }
-
-// ── SAVE CONFIG ───────────────────────────────
 async function saveConfig(){
   const lbls=document.querySelectorAll('.czl'),prices=document.querySelectorAll('.czp'),motos=document.querySelectorAll('.czm'),nz=[];
   for(let i=0;i<prices.length;i++){
@@ -1000,7 +1068,7 @@ function deliveryHTML(){
       const motoAmt = (isFlex||isPickup||o.noEnvio||o.noMoto) ? 0 : motoZonePrice(zoneName);
       const zoneObj = getZZ().find(z=>z.label===zoneName);
       const isBonifZone = zoneObj && zoneObj.motoPrice!=null && zoneObj.price===0;
-      h+=`<div class="drow ${cc}" style="padding:14px 16px">
+      h+=`<div class="drow ${cc}" data-oid="${o.id}" style="padding:14px 16px">
         <!-- TOP ROW: info left, amounts+status right -->
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
           <!-- LEFT: number + address + phone + obs -->
@@ -1133,10 +1201,23 @@ function filterHist(q){
 }
 
 async function onDelStatus(id,val){
-  db.orders.find(o=>o.id===id)&&(db.orders.find(o=>o.id===id).dStatus=val);
-  render();
+  const o=db.orders.find(x=>x.id===id);
+  if(!o) return;
+  o.dStatus=val;
+  // Don't call render() here — it shifts the DOM while the select is still firing
+  // Just update the visual border color of this card in-place
+  const card=document.querySelector(`[data-oid="${id}"]`);
+  if(card){
+    const isEntr=val==='entregado'||val==='retirado'||val==='retiro-moto';
+    const isCami=val==='en-camino'||val==='retira-cliente'||val==='proximo';
+    const isCanc=val==='cancelado';
+    card.className='drow '+(isEntr?'entr':isCami?'cami':isCanc?'canc':'');
+    card.style.padding='14px 16px';
+  }
   await updateDelivery(id,{dStatus:val});
   setD('ok',`✅ Drive — ${db.orders.length} pedidos`);
+  // Now safe to re-render (Drive save is done, no pending DOM events)
+  render();
 }
 async function onDelZona(id,val){
   db.orders.find(o=>o.id===id)&&(db.orders.find(o=>o.id===id).dZona=val);
@@ -1952,6 +2033,14 @@ function budgetToOrder(id){
 render();
 window.addEventListener('load',()=>{
   const t=setInterval(()=>{if(window.google&&window.google.accounts){clearInterval(t);initDrive();}},200);
+  // Periodic token health check every 5 min
+  setInterval(async()=>{
+    if(!tok) return;
+    const saved=JSON.parse(localStorage.getItem('pp_token')||'null');
+    if(!saved||saved.expiry<Date.now()+300000){
+      await ensureTok();
+    }
+  },5*60*1000);
 });
 </script>
 </body>
