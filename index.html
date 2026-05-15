@@ -268,8 +268,8 @@ function initDrive(){
     callback:async(r)=>{
       if(r.error){
         if(r.error==='interaction_required'||r.error==='login_required'){
-          // Silent failed — try with login_hint (no visible popup in most cases)
-          silentRefresh();
+          // Try silent refresh with login_hint - will keep retrying every 30s
+          setTimeout(silentRefresh, 1000);
         } else if(r.error==='user_cancelled'){
           setD('off','Conectá tu cuenta Google para sincronizar');render();
         } else {
@@ -309,27 +309,33 @@ function silentRefresh(){
       login_hint:hint,
       callback:(r)=>{
         if(r.error){
-          // Silent refresh failed — show connect button but don't interrupt
-          if(tok){tok=null;setD('off','Sesión expirada — reconectá');render();}
-          else{setD('off','Conectá tu cuenta Google');render();}
+          if(tok){tok=null;setD('off','Sesión vencida — tocá "Reconectar"');render();}
+          // Retry silent refresh every 30 seconds while disconnected
+          setTimeout(silentRefresh, 30000);
           return;
         }
         const expiry=Date.now()+((r.expires_in||3600)*1000);
         tok=r.access_token;
         localStorage.setItem('pp_token',JSON.stringify({token:tok,expiry}));
         if(r.email) localStorage.setItem('pp_account',r.email);
-        setD('ok',`✅ Drive — ${db.orders.length} pedidos`);
-        // Schedule next refresh
+        setD('sync','Reconectado — cargando...');
+        syncD();
         const ms=expiry-Date.now()-120000;
         if(ms>0) setTimeout(silentRefresh,ms);
       }
     }).requestAccessToken();
-  }catch(e){}
+  }catch(e){ setTimeout(silentRefresh, 30000); }
 }
 
 function connectDrive(){
-  if(!tcli){alert('Cargando Google...');return;}
-  tcli.requestAccessToken({prompt:'consent'});
+  if(!tcli){
+    // tcli may not be ready yet — wait and retry
+    setTimeout(connectDrive, 500);
+    return;
+  }
+  // Clear stale token before requesting new one
+  localStorage.removeItem('pp_token');
+  tcli.requestAccessToken({prompt:'select_account'});
 }
 function disconnectDrive(){
   if(tok) google.accounts.oauth2.revoke(tok,()=>{});
@@ -343,7 +349,12 @@ function setD(s,m){dst=s;dmsg=m;const el=document.getElementById('dbar');if(el)e
 // ── DRIVE API ─────────────────────────────────
 async function gf(url,opts={}){
   const r=await fetch(url,{...opts,headers:{Authorization:'Bearer '+tok,...(opts.headers||{})}});
-  if(r.status===401){tok=null;setD('off','Sesión expirada — reconectá');render();throw new Error('Token expirado');}
+  if(r.status===401){
+    tok=null;
+    localStorage.removeItem('pp_token'); // clear stale token
+    setD('off','⚠️ Sesión vencida — tocá "Reconectar"');render();
+    throw new Error('Token expirado');
+  }
   return r;
 }
 
@@ -356,7 +367,9 @@ async function syncD(){
     if(d.files&&d.files.length){
       fid=d.files[0].id;
       const fr=await gf(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`);
-      const p=JSON.parse(await fr.text());
+      const txt=await fr.text();
+      let p;
+      try{ p=JSON.parse(txt); }catch(e){ p={}; } // safe parse
       p.clients=p.clients||[];p.orders=p.orders||[];p.config=p.config||{};
       p.config.zones=p.config.zones?.length?p.config.zones:cp(DEF_Z);
       p.motoPayments=p.motoPayments||{};
@@ -754,8 +767,8 @@ function previewOrder(){
         <span style="font-weight:700;font-size:16px;color:#555">👁️ Vista previa del ticket</span>
         <button onclick="document.getElementById('preview-modal').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:20px;line-height:1">✕</button>
       </div>
-      <div style="padding:20px;display:flex;justify-content:center;overflow:hidden">
-        <div style="transform:scale(1.5);transform-origin:top center;width:110mm;margin-bottom:50%">
+      <div style="padding:20px;overflow-y:auto;max-height:75vh">
+        <div style="transform:scale(1);transform-origin:top center;width:100%">
           ${html}
         </div>
       </div>
@@ -836,7 +849,7 @@ function dbarHTML(){
     ${tok
       ?`<button class="dbar-btn" onclick="syncD()">↻ Actualizar</button>
         <button class="dbar-btn" onclick="disconnectDrive()">Desconectar</button>`
-      :`<button class="dbar-btn" onclick="connectDrive()">🔗 Conectar con Google</button>`}
+      :`<button onclick="connectDrive()" style="background:#4285f4;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🔗 Reconectar</button>`}
   </div>`;
 }
 
@@ -947,47 +960,23 @@ function orderHTML(){
   </div>
 </div>
 <div class="card">
-  <div class="ct">Tipo de entrega</div>
-
-  <!-- LOCAL -->
-  <div class="ptog" onclick="setDelivType('local')" style="margin-bottom:8px;background:${S().delivType==='local'?'var(--pkl)':'white'}">
-    <input type="radio" name="dt" ${S().delivType==='local'?'checked':''} onclick="event.stopPropagation();setDelivType('local')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-    <span style="font-size:14px;font-weight:600">🏬 Local — cliente viene a comprar</span>
-  </div>
-  ${S().delivType==='local'?`
-    <div style="margin-left:20px;margin-bottom:8px">
-      <label class="lbl">FORMA DE PAGO</label>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
-        <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('local')" style="background:${S().payMethod==='efectivo'&&S().cashLocation==='local'?'var(--pkl)':'white'}">
-          <input type="radio" name="lpm" ${S().payMethod==='efectivo'&&S().cashLocation==='local'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('local')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
-          <span style="font-size:13px;font-weight:600">💵 Pagó en efectivo</span>
-        </div>
-        <div class="ptog" onclick="setPayMethod('tarjeta')" style="background:${S().payMethod==='tarjeta'?'var(--pkl)':'white'}">
-          <input type="radio" name="lpm" ${S().payMethod==='tarjeta'?'checked':''} onclick="event.stopPropagation();setPayMethod('tarjeta')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
-          <span style="font-size:13px;font-weight:600">💳 Pagó con tarjeta</span>
-        </div>
-        <div class="ptog" onclick="setPayMethod('transferencia')" style="background:${S().payMethod==='transferencia'?'var(--pkl)':'white'}">
-          <input type="radio" name="lpm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
-          <span style="font-size:13px;font-weight:600">🏦 Pagó por transferencia</span>
-        </div>
-      </div>
-    </div>
-  `:''}
+  <div class="ct">Tipo de entrega y pago</div>
 
   <!-- DOMICILIO -->
-  <div class="ptog" onclick="setDelivType('domicilio')" style="margin-bottom:8px;background:${S().delivType==='domicilio'?'#fff9e6':'white'};border-color:${S().delivType==='domicilio'?'#f59e0b':'var(--pki)'}">
-    <input type="radio" name="dt" ${S().delivType==='domicilio'?'checked':''} onclick="event.stopPropagation();setDelivType('domicilio')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+  <div class="ptog" onclick="setDelivType('domicilio')" style="margin-bottom:8px;background:${S().delivType==='domicilio'||!S().delivType?'#fff9e6':'white'};border-color:${S().delivType==='domicilio'||!S().delivType?'#f59e0b':'var(--pki)'}">
+    <input type="radio" name="dt" ${S().delivType!=='retiro-local'?'checked':''} onclick="event.stopPropagation();setDelivType('domicilio')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
     <span style="font-size:14px;font-weight:600">🛵 Domicilio — envío a la dirección</span>
   </div>
-  ${S().delivType==='domicilio'?`
+  ${S().delivType!=='retiro-local'?`
     <div style="margin-left:20px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">
-      <!-- cash at door -->
-      <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('domicilio')" style="background:${S().payMethod==='efectivo'?'var(--pkl)':'white'}">
-        <input type="radio" name="dpm" ${S().payMethod==='efectivo'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('domicilio')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+
+      <!-- efectivo en domicilio -->
+      <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('domicilio')" style="background:${S().payMethod==='efectivo'&&S().cashLocation==='domicilio'?'var(--pkl)':'white'}">
+        <input type="radio" name="dpm" ${S().payMethod==='efectivo'&&S().cashLocation==='domicilio'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('domicilio')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
         <div style="flex:1">
-          <span style="font-size:13px;font-weight:600">💵 Abona con efectivo en domicilio</span>
-          ${S().payMethod==='efectivo'?`<div style="margin-top:6px">
-            <input type="number" value="${S().payment}" placeholder="Monto con el que paga..." 
+          <span style="font-size:13px;font-weight:600">💵 Abona en efectivo en domicilio</span>
+          ${S().payMethod==='efectivo'&&S().cashLocation==='domicilio'?`<div style="margin-top:6px">
+            <input type="number" value="${S().payment}" placeholder="Monto con el que paga..."
               onclick="event.stopPropagation()"
               oninput="S().payment=this.value;updCh()"
               style="width:100%;padding:7px 10px;border:1px solid var(--pki);border-radius:6px;font-size:13px;background:var(--pkf);font-family:inherit">
@@ -995,17 +984,33 @@ function orderHTML(){
           </div>`:'<div id="ch"></div>'}
         </div>
       </div>
-      <!-- transfer -->
-      <div class="ptog" onclick="setPayMethod('transferencia')" style="background:${S().payMethod==='transferencia'?'#fff9e6':'white'};border-color:${S().payMethod==='transferencia'?'#f59e0b':'var(--pki)'}">
-        <input type="radio" name="dpm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+
+      <!-- transferencia -->
+      <div class="ptog" onclick="setPayMethod('transferencia');setCashLoc('domicilio')" style="background:${S().payMethod==='transferencia'&&S().cashLocation==='domicilio'?'#fff9e6':'white'};border-color:${S().payMethod==='transferencia'&&S().cashLocation==='domicilio'?'#f59e0b':'var(--pki)'}">
+        <input type="radio" name="dpm" ${S().payMethod==='transferencia'&&S().cashLocation==='domicilio'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia');setCashLoc('domicilio')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
         <span style="font-size:13px;font-weight:600">🏦 Transferencia</span>
       </div>
-      ${S().payMethod==='transferencia'?`
+      ${S().payMethod==='transferencia'&&S().cashLocation==='domicilio'?`
         <div class="ptog" onclick="togTransfer()" style="margin-left:16px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
           <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
           <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Falta transferir'}</span>
         </div>
       `:''}
+
+      <!-- abonó en local -->
+      <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('local')" style="background:${S().cashLocation==='local'||S().payMethod==='tarjeta'||S().payMethod==='trans-local'?'var(--pkl)':'white'}">
+        <input type="radio" name="dpm" ${S().cashLocation==='local'||S().payMethod==='tarjeta'||S().payMethod==='trans-local'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('local')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+        <div style="flex:1">
+          <span style="font-size:13px;font-weight:600">✅ Abonó en local</span>
+          ${S().cashLocation==='local'||S().payMethod==='tarjeta'||S().payMethod==='trans-local'?`
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('local')" style="padding:5px 12px;border-radius:8px;border:1.5px solid ${S().payMethod==='efectivo'&&S().cashLocation==='local'?'var(--pk)':'#ddd'};background:${S().payMethod==='efectivo'&&S().cashLocation==='local'?'var(--pkl)':'white'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">💵 Efectivo</button>
+            <button onclick="event.stopPropagation();setPayMethod('tarjeta')" style="padding:5px 12px;border-radius:8px;border:1.5px solid ${S().payMethod==='tarjeta'?'var(--pk)':'#ddd'};background:${S().payMethod==='tarjeta'?'var(--pkl)':'white'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">💳 Tarjeta</button>
+            <button onclick="event.stopPropagation();setPayMethod('trans-local')" style="padding:5px 12px;border-radius:8px;border:1.5px solid ${S().payMethod==='trans-local'?'var(--pk)':'#ddd'};background:${S().payMethod==='trans-local'?'var(--pkl)':'white'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">🏦 Transferencia</button>
+          </div>`:''}
+        </div>
+      </div>
+
     </div>
   `:''}
 
@@ -1033,7 +1038,7 @@ function orderHTML(){
     </div>
   `:''}
 
-  ${S().paid?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:700;color:#15803d;margin-top:6px">✅ PEDIDO PAGADO<br><span style="font-size:13px;font-weight:400;color:#166534">$${fmt(cTot())} — El cliente ha abonado el total</span></div>`:''}
+  ${S().paid?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:700;color:#15803d;margin-top:6px">✅ PEDIDO PAGADO — $${fmt(cTot())}</div>`:''}
 </div>
 <div class="card">
   <div class="ct">Observaciones</div>
