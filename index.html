@@ -141,8 +141,8 @@ textarea{resize:vertical;min-height:58px}
 .tkt hr{border:none;border-top:.5pt solid #0891b2;margin:1.5mm 0}
 .tkt-i{font-size:10pt;margin-bottom:2mm}
 .tkt-i div{margin-bottom:.5mm}
-.tkt-dir{color:#cc0000;font-weight:700}
-.tkt-numped{font-size:15pt;font-weight:900;color:magenta;display:inline-block}
+.tkt-dir{color:#0e7490;font-weight:700}
+.tkt-numped{font-size:15pt;font-weight:900;color:#a21caf;display:inline-block}
 .tkt-nbox{display:inline-block;width:18mm;height:6mm;border:.5pt solid #555;vertical-align:middle;margin-left:3mm}
 .tkt table{width:100%;border-collapse:collapse;margin-bottom:2mm}
 .tkt table th{border:.5pt solid #0891b2;padding:.6mm 1mm;font-size:8pt;background:#e0f7fa}
@@ -659,7 +659,7 @@ function printO(o){
   <div class="tkt-i">
     ${o.name?`<div><strong>Cliente:</strong> ${o.name}</div>`:''}
     ${o.phone?`<div><strong>Tel:</strong> ${o.phone}</div>`:''}
-    ${o.address?`<div><strong>Dirección:</strong> <span class="tkt-dir">${o.address}</span></div>`:''}
+    ${o.address?`<div><strong style="color:black">Dirección:</strong> <span class="tkt-dir">${o.address}</span></div>`:''}
   </div>
   <table><thead><tr>
     <th style="width:10%;border:.5pt solid #0891b2">Cant</th>
@@ -674,7 +674,7 @@ function printO(o){
     <td style="text-align:right;border:.5pt solid #0891b2">$${fmt(it.sub)}</td>
   </tr>`).join('')}
   </tbody></table>
-  ${o.observations?`<div style="font-size:9pt;margin-bottom:2mm"><strong>Obs:</strong> ${o.observations}</div>`:''}
+  ${o.observations?`<div style="font-size:9pt;margin-bottom:2mm;background:#fef08a;padding:2mm 3mm;border-radius:2mm"><strong>Obs:</strong> <strong>${o.observations}</strong></div>`:''}
   <div class="tkt-tot">
     <div style="font-size:8pt">Mensajería (${o.zoneName||'Sin envío'}): $${fmt(o.shipping)}</div>
     ${pl}
@@ -734,6 +734,40 @@ function sendWA(){
   const url='https://wa.me/'+(phone?'549'+phone:'')+'?text='+encodeURIComponent(msg);
   window.open(url,'_blank');
 }
+function previewOrder(){
+  const s=S();
+  const zz=getZZ();
+  const items=s.items.filter(i=>i.desc.trim());
+  const sub=items.reduce((t,i)=>t+(parseFloat(i.sub)||0),0);
+  const ship=s.noEnvio?0:(zz[s.zone]?.price??0);
+  const tot=sub+ship;
+  const o={
+    id:s.id||Date.now(),date:s.date,orderNum:s.orderNum,name:s.name,phone:s.phone,
+    address:s.address,observations:s.observations,
+    zone:s.zone,zoneName:zz[s.zone]?.label||'',shipping:ship,subtotal:sub,total:tot,
+    items,payMethod:s.payMethod,transferDone:s.transferDone,
+    cashLocation:s.cashLocation,payment:s.payment,paid:s.paid,
+    dStatus:s.dStatus||'pendiente',dZona:zz[s.zone]?.label||''
+  };
+  printO(o); // renders into #pra
+  const html=document.getElementById('pra').innerHTML;
+  const ov=document.createElement('div');
+  ov.id='preview-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.innerHTML=`<div style="background:white;border-radius:12px;max-width:420px;width:100%;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #eee;gap:8px">
+      <span style="font-weight:700;font-size:15px;color:#555">👁️ Vista previa</span>
+      <div style="display:flex;gap:8px">
+        <button onclick="window.print()" style="background:#0891b2;color:white;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-family:inherit">🖨️ Imprimir</button>
+        <button onclick="document.getElementById('preview-modal').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:18px;line-height:1">✕</button>
+      </div>
+    </div>
+    <div style="padding:16px;overflow-y:auto;max-height:75vh">${html}</div>
+  </div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+}
+
 function cSub()  { return S().items.reduce((s,i)=>s+(parseFloat(i.sub)||0),0); }
 function cShip() { if(S().noEnvio) return 0; return getZZ()[S().zone]?.price??0; }
 function cTot()  { return cSub()+cShip(); }
@@ -974,6 +1008,7 @@ function orderHTML(){
   <button class="btn bp bfw" onclick="saveOP(false)">💾 ${S().editing?'Actualizar pedido':'Guardar pedido'}</button>
   <button class="btn bd" style="padding:13px 16px;flex-shrink:0" onclick="saveOP(true)">🖨️ Guardar e imprimir</button>
 </div>
+<button class="btn bfw bsm" style="margin-bottom:8px;background:#6366f1;color:white" onclick="previewOrder()">👁️ Vista previa del ticket</button>
 <button class="btn bfw bsm" style="margin-bottom:8px;background:#25d366;color:white;font-size:14px" onclick="saveAndWA()">📲 Guardar y enviar por WhatsApp</button>
 <button class="btn bs bfw bsm" style="margin-bottom:8px;border:1px dashed var(--pk)" onclick="clearSlot()">🗑️ Nuevo pedido — borrar este formulario</button>
 ${lastO?`<button class="btn bs bfw bsm" style="margin-bottom:4px" onclick="printO(lastO)">↩️ Reimprimir último (${lastO.address||lastO.name})</button>`:''}
@@ -1074,8 +1109,8 @@ function deliveryHTML(){
           <!-- LEFT: number + address + phone + obs -->
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-              ${o.orderNum?`<span style="font-size:19px;font-weight:900;color:${bc}">${isFlex?'<span style="background:#7c3aed;color:white;padding:1px 6px;border-radius:4px;font-size:13px">FLEX</span>':'#'+o.orderNum}</span>`:''}
-              <span style="font-size:18px;font-weight:700;color:#cc0000">${o.address||'Sin dirección'}</span>
+              ${o.orderNum?`<span style="font-size:19px;font-weight:900;color:${isFlex?bc:'#a21caf'}">${isFlex?'<span style="background:#7c3aed;color:white;padding:1px 6px;border-radius:4px;font-size:13px">FLEX</span>':'#'+o.orderNum}</span>`:''}
+              <span style="font-size:18px;font-weight:700;color:black">${o.address||'Sin dirección'}</span>
               ${o.address?`<button onclick="openMapsWalk('${(o.address||'').replace(/'/g,"&#39;")}')" title="Ver ruta a pie en Google Maps" style="background:#4285f4;color:white;border:none;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:14px;flex-shrink:0">🗺️</button>`:''}
               <label title="Incluir en ruta múltiple" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#555;flex-shrink:0">
                 <input type="checkbox" ${(routeSel||[]).includes(o.id)?'checked':''} onchange="toggleRoute(${o.id},this.checked)" style="width:14px;height:14px;accent-color:#4285f4">
