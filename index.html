@@ -199,7 +199,7 @@ function dlabel(d){ return DAYS_S[d.getDay()]+' '+d.getDate()+' '+MONTHS_N[d.get
 function newFrm(){
   return {id:Date.now(),date:hoy(),orderNum:'',name:'',phone:'',address:'',
     items:[{qty:'',desc:'',price:'',sub:0}],zone:0,paid:false,payment:'',observations:'',
-    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false,cashLocation:'domicilio',motoNoCobra:false,noEnvio:false,noMoto:false};
+    editing:false,dStatus:'pendiente',dZona:'',dAbona:'',payMethod:'efectivo',transferDone:false,cashLocation:'domicilio',motoNoCobra:false,noEnvio:false,noMoto:false,delivType:'domicilio'};
 }
 
 // ── ESTADO ────────────────────────────────────
@@ -490,7 +490,8 @@ async function saveOP(shouldPrint){
       dStatus:S().dStatus||'pendiente',dZona:zz[S().zone]?.label||'',dAbona:S().dAbona||'',
       motoNoCobra:S().motoNoCobra||false,
       noEnvio:S().noEnvio||false,
-      noMoto:S().noMoto||false
+      noMoto:S().noMoto||false,
+      delivType:S().delivType||'domicilio'
     };
     const merged=await drMerge(fresh=>{
       const ci=fresh.clients.findIndex(c=>c.phone===order.phone);
@@ -567,7 +568,8 @@ function editOrder(id){
     payMethod:o.payMethod||'efectivo',transferDone:!!o.transferDone,cashLocation:o.cashLocation||'domicilio',
     motoNoCobra:o.motoNoCobra||false,
     noEnvio:o.noEnvio||false,
-    noMoto:o.noMoto||false};
+    noMoto:o.noMoto||false,
+    delivType:o.delivType||(o.cashLocation==='local'?'local':o.dStatus==='retiro-local'?'retiro-local':'domicilio')};
   if(slots.length<4){slots.push(ef);si=slots.length-1;}else slots[si]=ef;
   modal=null;tab='order';render();
 }
@@ -609,30 +611,21 @@ async function saveClient(){
 }
 
 // ── PRINT ─────────────────────────────────────
-function printO(o){
+function buildTicketHTML(o){
   const isTransfer = o.payMethod==='transferencia';
   const isCashLocal = o.payMethod==='efectivo' && o.cashLocation==='local';
   const isCashDoor = !isTransfer && !isCashLocal;
   const fullyPaid = o.paid || isCashLocal || (isTransfer && o.transferDone) || (isCashDoor && o.dStatus==='entregado');
   const ch=(o.payment||0)-(o.total||0);
-
-  // Payment status block for print
-  // Base: tkt-tot is 9pt, TOTAL is 9pt inline, transfer label = 11pt (+2), abona = 11pt (+2), vuelto = 10pt (+1)
   let pl;
   if(fullyPaid){
     const label = isTransfer ? '🏦 Pago transferencia' : isCashLocal ? '💵 Pago efectivo local' : '💵 Cobrado en domicilio';
-    if(isTransfer){
-      pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
-            <div style="font-size:11pt;font-weight:900;color:#065f46">${label}</div>`;
-    } else {
-      pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
-            <div style="font-size:11pt;font-weight:700;color:#065f46">${label}</div>`;
-    }
+    pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
+          <div style="font-size:11pt;font-weight:${isTransfer?'900':'700'};color:#065f46">${label}</div>`;
   } else if(isTransfer){
     pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
           <div style="font-size:11pt;font-weight:900;color:#0891b2">🏦 Pago con transferencia</div>`;
   } else {
-    // Cash at door — always show Abona con: box (filled or blank for handwriting)
     pl = `<div style="font-size:9pt;font-weight:700">TOTAL: $${fmt(o.total)}</div>
           <div style="display:flex;align-items:center;gap:4mm;margin-top:1.5mm">
             <span style="font-size:11pt;font-weight:900;color:#15803d">Abona con:</span>
@@ -642,9 +635,7 @@ function printO(o){
               :`<span style="display:inline-block;width:28mm;height:6mm;border:.8pt solid #555;border-radius:1mm;vertical-align:middle"></span>`}
           </div>`;
   }
-
-  document.getElementById('pra').innerHTML=`
-<div class="tkt">
+  return `<div class="tkt">
   <div class="tkt-h">Pañalera Primeros Pasos</div>
   <div class="tkt-s" style="font-size:11pt;font-weight:bold"><span style="font-size:12pt;margin-right:3pt">💬</span>15-3935-9610</div>
   <div class="tkt-s">Lunes a Viernes de 10 a 19 hs</div>
@@ -682,6 +673,10 @@ function printO(o){
   <div style="font-size:8pt;margin-top:2.5mm;text-align:center;font-style:italic;color:#333">Le rogamos revisar el pedido y ante cualquier problema comunicarse en el momento.</div>
   <div class="tkt-f">¡Gracias por tu compra! 🎀</div>
 </div>`;
+}
+
+function printO(o){
+  document.getElementById('pra').innerHTML=buildTicketHTML(o);
   window.print();
 }
 
@@ -749,21 +744,22 @@ function previewOrder(){
     cashLocation:s.cashLocation,payment:s.payment,paid:s.paid,
     dStatus:s.dStatus||'pendiente',dZona:zz[s.zone]?.label||''
   };
-  printO(o); // renders into #pra
-  const html=document.getElementById('pra').innerHTML;
+  const html=buildTicketHTML(o);
   const ov=document.createElement('div');
   ov.id='preview-modal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
-  ov.innerHTML=`<div style="background:white;border-radius:12px;max-width:420px;width:100%;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.4)">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #eee;gap:8px">
-      <span style="font-weight:700;font-size:15px;color:#555">👁️ Vista previa</span>
-      <div style="display:flex;gap:8px">
-        <button onclick="window.print()" style="background:#0891b2;color:white;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-family:inherit">🖨️ Imprimir</button>
-        <button onclick="document.getElementById('preview-modal').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:18px;line-height:1">✕</button>
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+  ov.innerHTML=`
+    <div style="background:white;border-radius:14px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #eee;gap:8px">
+        <span style="font-weight:700;font-size:16px;color:#555">👁️ Vista previa del ticket</span>
+        <button onclick="document.getElementById('preview-modal').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:20px;line-height:1">✕</button>
       </div>
-    </div>
-    <div style="padding:16px;overflow-y:auto;max-height:75vh">${html}</div>
-  </div>`;
+      <div style="padding:20px;display:flex;justify-content:center;overflow:hidden">
+        <div style="transform:scale(1.5);transform-origin:top center;width:110mm;margin-bottom:50%">
+          ${html}
+        </div>
+      </div>
+    </div>`;
   ov.onclick=e=>{if(e.target===ov)ov.remove();};
   document.body.appendChild(ov);
 }
@@ -951,54 +947,93 @@ function orderHTML(){
   </div>
 </div>
 <div class="card">
-  <div class="ct">Forma de pago</div>
+  <div class="ct">Tipo de entrega</div>
 
-  <!-- TRANSFERENCIA -->
-  <div class="ptog" onclick="setPayMethod('transferencia')" style="margin-bottom:8px">
-    <input type="radio" name="pm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-    <span style="font-size:13px;font-weight:600">🏦 Transferencia</span>
+  <!-- LOCAL -->
+  <div class="ptog" onclick="setDelivType('local')" style="margin-bottom:8px;background:${S().delivType==='local'?'var(--pkl)':'white'}">
+    <input type="radio" name="dt" ${S().delivType==='local'?'checked':''} onclick="event.stopPropagation();setDelivType('local')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+    <span style="font-size:14px;font-weight:600">🏬 Local — cliente viene a comprar</span>
   </div>
-  ${S().payMethod==='transferencia'?`
-    <div class="ptog" onclick="togTransfer()" style="margin-left:20px;margin-bottom:8px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
-      <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-      <div>
-        <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Falta transferir'}</span>
-        <div style="font-size:11px;color:#888;margin-top:2px">${S().transferDone?'Pago recibido':'Tildar cuando se confirme el pago'}</div>
+  ${S().delivType==='local'?`
+    <div style="margin-left:20px;margin-bottom:8px">
+      <label class="lbl">FORMA DE PAGO</label>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('local')" style="background:${S().payMethod==='efectivo'&&S().cashLocation==='local'?'var(--pkl)':'white'}">
+          <input type="radio" name="lpm" ${S().payMethod==='efectivo'&&S().cashLocation==='local'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('local')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
+          <span style="font-size:13px;font-weight:600">💵 Pagó en efectivo</span>
+        </div>
+        <div class="ptog" onclick="setPayMethod('tarjeta')" style="background:${S().payMethod==='tarjeta'?'var(--pkl)':'white'}">
+          <input type="radio" name="lpm" ${S().payMethod==='tarjeta'?'checked':''} onclick="event.stopPropagation();setPayMethod('tarjeta')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
+          <span style="font-size:13px;font-weight:600">💳 Pagó con tarjeta</span>
+        </div>
+        <div class="ptog" onclick="setPayMethod('transferencia')" style="background:${S().payMethod==='transferencia'?'var(--pkl)':'white'}">
+          <input type="radio" name="lpm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
+          <span style="font-size:13px;font-weight:600">🏦 Pagó por transferencia</span>
+        </div>
       </div>
     </div>
-    ${!S().transferDone?`<div style="background:#fff9e6;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin-left:20px;margin-bottom:8px;font-size:12px;color:#92400e;font-weight:600">⚠️ Falta transferir — adeudado</div>`:''}
   `:''}
 
-  <!-- EFECTIVO -->
-  <div class="ptog" onclick="setPayMethod('efectivo')" style="margin-bottom:8px">
-    <input type="radio" name="pm" ${S().payMethod==='efectivo'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-    <span style="font-size:13px;font-weight:600">💵 Efectivo</span>
+  <!-- DOMICILIO -->
+  <div class="ptog" onclick="setDelivType('domicilio')" style="margin-bottom:8px;background:${S().delivType==='domicilio'?'#fff9e6':'white'};border-color:${S().delivType==='domicilio'?'#f59e0b':'var(--pki)'}">
+    <input type="radio" name="dt" ${S().delivType==='domicilio'?'checked':''} onclick="event.stopPropagation();setDelivType('domicilio')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+    <span style="font-size:14px;font-weight:600">🛵 Domicilio — envío a la dirección</span>
   </div>
-  ${S().payMethod==='efectivo'?`
-    <!-- Pago en local -->
-    <div class="ptog" onclick="setCashLoc('local')" style="margin-left:20px;margin-bottom:8px;background:${S().cashLocation==='local'?'var(--pkl)':'white'}">
-      <input type="radio" name="cl" ${S().cashLocation==='local'?'checked':''} onclick="event.stopPropagation();setCashLoc('local')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-      <div>
-        <span style="font-size:13px;font-weight:600">✅ Pagó en el local</span>
-        <div style="font-size:11px;color:#888;margin-top:1px">El cliente ya abonó</div>
+  ${S().delivType==='domicilio'?`
+    <div style="margin-left:20px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">
+      <!-- cash at door -->
+      <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('domicilio')" style="background:${S().payMethod==='efectivo'?'var(--pkl)':'white'}">
+        <input type="radio" name="dpm" ${S().payMethod==='efectivo'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('domicilio')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+        <div style="flex:1">
+          <span style="font-size:13px;font-weight:600">💵 Abona con efectivo en domicilio</span>
+          ${S().payMethod==='efectivo'?`<div style="margin-top:6px">
+            <input type="number" value="${S().payment}" placeholder="Monto con el que paga..." 
+              onclick="event.stopPropagation()"
+              oninput="S().payment=this.value;updCh()"
+              style="width:100%;padding:7px 10px;border:1px solid var(--pki);border-radius:6px;font-size:13px;background:var(--pkf);font-family:inherit">
+            ${S().payment?`<div id="ch" style="margin-top:4px">${chHTML()}</div>`:'<div id="ch"></div>'}
+          </div>`:'<div id="ch"></div>'}
+        </div>
       </div>
-    </div>
-    <!-- Abona en domicilio -->
-    <div class="ptog" onclick="setCashLoc('domicilio')" style="margin-left:20px;margin-bottom:8px;background:${S().cashLocation==='domicilio'?'#fff9e6':'white'};border-color:${S().cashLocation==='domicilio'?'#f59e0b':'var(--pki)'}">
-      <input type="radio" name="cl" ${S().cashLocation==='domicilio'?'checked':''} onclick="event.stopPropagation();setCashLoc('domicilio')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
-      <div style="flex:1">
-        <span style="font-size:13px;font-weight:600">🏠 Abona en domicilio</span>
-        ${S().cashLocation==='domicilio'?`<div style="margin-top:6px">
-          <label style="font-size:10px;font-weight:700;color:var(--pk2);display:block;margin-bottom:3px">ABONA CON</label>
-          <input type="number" value="${S().payment}" placeholder="Monto con el que paga..." 
-            onclick="event.stopPropagation()"
-            oninput="S().payment=this.value;updCh()"
-            style="width:100%;padding:7px 10px;border:1px solid var(--pki);border-radius:6px;font-size:13px;background:var(--pkf);font-family:inherit">
-        </div>`:''}
+      <!-- transfer -->
+      <div class="ptog" onclick="setPayMethod('transferencia')" style="background:${S().payMethod==='transferencia'?'#fff9e6':'white'};border-color:${S().payMethod==='transferencia'?'#f59e0b':'var(--pki)'}">
+        <input type="radio" name="dpm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+        <span style="font-size:13px;font-weight:600">🏦 Transferencia</span>
       </div>
+      ${S().payMethod==='transferencia'?`
+        <div class="ptog" onclick="togTransfer()" style="margin-left:16px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
+          <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+          <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Falta transferir'}</span>
+        </div>
+      `:''}
     </div>
-    ${S().cashLocation==='domicilio'&&S().payment?`<div id="ch" style="margin-left:20px">${chHTML()}</div>`:`<div id="ch"></div>`}
-  `:'<div id="ch"></div>'}
+  `:''}
+
+  <!-- RETIRO EN LOCAL -->
+  <div class="ptog" onclick="setDelivType('retiro-local')" style="margin-bottom:8px;background:${S().delivType==='retiro-local'?'#f0fdf4':'white'};border-color:${S().delivType==='retiro-local'?'#16a34a':'var(--pki)'}">
+    <input type="radio" name="dt" ${S().delivType==='retiro-local'?'checked':''} onclick="event.stopPropagation();setDelivType('retiro-local')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+    <span style="font-size:14px;font-weight:600">🏪 Retiro en local — el cliente pasa a buscar</span>
+  </div>
+  ${S().delivType==='retiro-local'?`
+    <div style="margin-left:20px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">
+      <div class="ptog" onclick="setPayMethod('efectivo');setCashLoc('retiro')" style="background:${S().payMethod==='efectivo'?'var(--pkl)':'white'}">
+        <input type="radio" name="rpm" ${S().payMethod==='efectivo'?'checked':''} onclick="event.stopPropagation();setPayMethod('efectivo');setCashLoc('retiro')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
+        <span style="font-size:13px;font-weight:600">💵 Paga al retirar</span>
+      </div>
+      <div class="ptog" onclick="setPayMethod('transferencia')" style="background:${S().payMethod==='transferencia'?'#fff9e6':'white'};border-color:${S().payMethod==='transferencia'?'#f59e0b':'var(--pki)'}">
+        <input type="radio" name="rpm" ${S().payMethod==='transferencia'?'checked':''} onclick="event.stopPropagation();setPayMethod('transferencia')" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer">
+        <span style="font-size:13px;font-weight:600">🏦 Pago por transferencia</span>
+      </div>
+      ${S().payMethod==='transferencia'?`
+        <div class="ptog" onclick="togTransfer()" style="margin-left:16px;background:${S().transferDone?'var(--pkl)':'#fff9e6'};border-color:${S().transferDone?'var(--pkb)':'#f59e0b'}">
+          <input type="checkbox" ${S().transferDone?'checked':''} onclick="event.stopPropagation();togTransfer()" style="width:16px;height:16px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
+          <span style="font-size:13px;font-weight:600">${S().transferDone?'✅ Transferencia confirmada':'⏳ Falta transferir'}</span>
+        </div>
+      `:''}
+    </div>
+  `:''}
+
+  ${S().paid?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:700;color:#15803d;margin-top:6px">✅ PEDIDO PAGADO<br><span style="font-size:13px;font-weight:400;color:#166534">$${fmt(cTot())} — El cliente ha abonado el total</span></div>`:''}
 </div>
 <div class="card">
   <div class="ct">Observaciones</div>
@@ -1040,7 +1075,6 @@ function deliveryHTML(){
   const filteredOrders = delSubTab==='todos' ? orders
     : delSubTab==='entregado' ? orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto')
     : orders.filter(o=>o.dStatus===delSubTab);
-
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:white;border:1px solid var(--pkb);border-radius:10px;padding:10px 14px">
     <button class="btn bs bsm" onclick="dPrevDay()">◀</button>
     <div style="flex:1;text-align:center">
@@ -1054,11 +1088,12 @@ function deliveryHTML(){
   <!-- SUB-TABS -->
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;overflow-x:auto;padding-bottom:2px">
     ${[
-      {k:'todos',   label:'Todos',           count: orders.length},
-      {k:'pendiente',label:'⏳ Pendientes',  count: orders.filter(o=>o.dStatus==='pendiente').length},
-      {k:'proximo', label:'🔜 Próx. a salir',count: orders.filter(o=>o.dStatus==='proximo').length},
-      {k:'en-camino',label:'🛵 En camino',   count: orders.filter(o=>o.dStatus==='en-camino').length},
-      {k:'entregado',label:'✅ Entregados',  count: orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto').length},
+      {k:'todos',    label:'Todos',              count: orders.length},
+      {k:'pendiente',label:'⏳ Pendientes',       count: orders.filter(o=>o.dStatus==='pendiente').length},
+      {k:'retiro-local',label:'🏪 A retirar',    count: orders.filter(o=>o.dStatus==='retiro-local').length},
+      {k:'proximo',  label:'🔜 Próx. a salir',   count: orders.filter(o=>o.dStatus==='proximo').length},
+      {k:'en-camino',label:'🛵 En camino',        count: orders.filter(o=>o.dStatus==='en-camino').length},
+      {k:'entregado',label:'✅ Entregados',       count: orders.filter(o=>o.dStatus==='entregado'||o.dStatus==='retirado'||o.dStatus==='retiro-moto').length},
     ].map(({k,label,count})=>`
       <button onclick="delSubTab='${k}';render()" style="padding:6px 10px;border-radius:20px;border:1.5px solid ${delSubTab===k?'var(--pk)':'#ddd'};background:${delSubTab===k?'var(--pk)':'white'};color:${delSubTab===k?'white':'#555'};font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit">
         ${label}${count>0?` <span style="background:${delSubTab===k?'rgba(255,255,255,.3)':'#eee'};border-radius:10px;padding:1px 6px;font-size:13px">${count}</span>`:''}
@@ -1092,8 +1127,8 @@ function deliveryHTML(){
       const trae = pagado?0:(abonaNum>0?abonaNum:total);
       // Moto owes money ONLY when en-camino and cash at door (not transfer, not local)
       const motoOwe = !isTransfer && !isCashLocal && est==='en-camino';
-      const cc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':(est==='retira-cliente'||est==='proximo')?'cami':'';
-      const bc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'#16a34a':(est==='en-camino'||est==='retira-cliente')?'#3b82f6':est==='cancelado'?'#9ca3af':est==='proximo'?'#7c3aed':'#f59e0b';
+      const cc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'entr':est==='en-camino'?'cami':est==='cancelado'?'canc':(est==='retira-cliente'||est==='proximo'||est==='retiro-local')?'cami':'';
+      const bc=(est==='entregado'||est==='retirado'||est==='retiro-moto')?'#16a34a':(est==='en-camino'||est==='retira-cliente')?'#3b82f6':est==='cancelado'?'#9ca3af':(est==='proximo'||est==='retiro-local')?'#7c3aed':'#f59e0b';
       const zoneName=o.dZona||o.zoneName||'';
       const zonePrice=motoZonePrice(zoneName);
 
@@ -1149,6 +1184,7 @@ function deliveryHTML(){
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
                 <option value="pendiente"      ${est==='pendiente'?'selected':''}>⏳ Pendiente</option>
+                <option value="retiro-local"   ${est==='retiro-local'?'selected':''}>🏪 A retirar en local</option>
                 <option value="proximo"        ${est==='proximo'?'selected':''}>🔜 Próximo a salir</option>
                 <option value="retira-cliente" ${est==='retira-cliente'?'selected':''}>🏪 Retira el cliente</option>
                 <option value="en-camino"      ${est==='en-camino'?'selected':''}>🛵 En camino</option>
@@ -1681,7 +1717,14 @@ function closeSlot(i){
 }
 
 function togPaid(){S().paid=!S().paid;if(S().paid)S().payment='';render();}
-function setPayMethod(m){S().payMethod=m;if(m==='transferencia'){S().payment='';}render();}
+function setDelivType(t){
+  S().delivType=t;
+  if(t==='local'){S().payMethod='efectivo';S().cashLocation='local';S().paid=true;S().dStatus='pendiente';}
+  if(t==='domicilio'){S().payMethod='efectivo';S().cashLocation='domicilio';S().paid=false;S().dStatus='pendiente';}
+  if(t==='retiro-local'){S().payMethod='efectivo';S().cashLocation='retiro';S().paid=false;S().dStatus='retiro-local';}
+  render();
+}
+function setPayMethod(m){S().payMethod=m;if(m==='transferencia'){S().payment='';}if(m==='tarjeta'){S().paid=true;}render();}
 function setCashLoc(loc){S().cashLocation=loc;if(loc==='local'){S().paid=true;S().payment='';}else{S().paid=false;}render();}
 function togTransfer(){S().transferDone=!S().transferDone;S().paid=S().transferDone;render();}
 function onZC(v){
