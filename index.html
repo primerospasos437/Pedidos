@@ -1104,7 +1104,7 @@ function deliveryHTML(){
     totalDia+=(o.total||0);
     if(o.dStatus==='entregado'||o.dStatus==='retirado') totalEntreg++;
     if(o.dStatus==='pendiente'||o.dStatus==='retira-cliente') totalPend+=(o.total||0);
-    const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
+    const isFlex=(o.orderNum||'').toString().trim().toUpperCase().startsWith('FLEX');
     const isPickup = o.dStatus==='retira-cliente'||o.dStatus==='retirado';
     if(!isFlex && !isPickup && !o.noEnvio && !o.noMoto && o.dStatus!=='cancelado'){
       totalMoto+=motoZonePrice(o.dZona||o.zoneName||'');
@@ -1171,7 +1171,7 @@ function deliveryHTML(){
       const zoneName=o.dZona||o.zoneName||'';
       const zonePrice=motoZonePrice(zoneName);
 
-      const isFlex = (o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
+      const isFlex = (o.orderNum||'').toString().trim().toUpperCase().startsWith('FLEX');
       const isPickup = est==='retira-cliente'||est==='retirado';
       const motoNoCobra = !!o.motoNoCobra;
       const motoAmt = (isFlex||isPickup||o.noEnvio||o.noMoto) ? 0 : motoZonePrice(zoneName);
@@ -1192,13 +1192,15 @@ function deliveryHTML(){
               </label>
             </div>
             ${o.name||o.phone?`<div style="font-size:15px;color:#555;margin-top:3px">📞 ${[o.name,o.phone].filter(Boolean).join(' · ')}</div>`:''}
-            ${zoneName&&!o.noEnvio?`<div style="font-size:14px;color:var(--pk2);font-weight:600;margin-top:3px">📍 ${zoneName}${isBonifZone?` — <span style="color:#16a34a">Bonificado</span> <span style="color:#888;font-size:11px">(moto: $${fmt(motoAmt)})</span>`:zonePrice>0?' — $'+fmt(zonePrice):' — Bonificado'}</div>`:''}
+            ${zoneName&&!o.noEnvio&&!isFlex?`<div style="font-size:14px;color:var(--pk2);font-weight:600;margin-top:3px">📍 ${zoneName}${isBonifZone?` — <span style="color:#16a34a">Bonificado</span> <span style="color:#888;font-size:11px">(moto: $${fmt(motoAmt)})</span>`:zonePrice>0?' — $'+fmt(zonePrice):' — Bonificado'}</div>`:''}
             ${o.observations?`<div style="font-size:15px;font-weight:700;color:#92400e;margin-top:5px;background:#fef3c7;border-left:3px solid #f59e0b;padding:5px 8px;border-radius:0 6px 6px 0">📝 ${o.observations}</div>`:''}
           </div>
           <!-- RIGHT: amounts + status -->
           <div style="text-align:right;flex-shrink:0;min-width:150px">
             <div id="damt-${o.id}">
-              ${motoNoCobra
+              ${isFlex
+                ?`<div style="font-size:13px;font-weight:700;color:#7c3aed">🟣 Envío externo FLEX</div>`
+                :motoNoCobra
                 ?`<div style="font-size:15px;font-weight:700;color:#3b82f6">🛵 Moto no cobra al cliente</div>
                    <div style="font-size:14px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`
                 :pagado && !isCashDoorDelivered
@@ -1219,6 +1221,7 @@ function deliveryHTML(){
                             :`<div style="font-size:12px;color:#888;margin-top:1px">💵 Cobra en domicilio: $${fmt(total)}</div>`}`
                         :`<div style="font-size:13px;font-weight:700;color:#f59e0b">💵 Pendiente de cobro en domicilio</div>
                           <div style="font-size:14px;color:#666;margin-top:2px">Total: $${fmt(total)}</div>`}
+              : ''}
             </div>
             <div style="margin-top:7px">
               <select class="desel de-${est}" onchange="onDelStatus(${o.id},this.value)">
@@ -1243,7 +1246,7 @@ function deliveryHTML(){
           <button onclick="printO(db.orders.find(x=>x.id===${o.id}))" title="Imprimir pedido" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:17px;line-height:1">🖨️</button>
           <button onclick="previewOrderById(${o.id})" title="Vista previa" style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:17px;line-height:1">👁️</button>
           <div style="display:flex;gap:6px;align-items:center">
-            ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:13px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
+            ${!isFlex&&!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:13px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
             <button class="btn bs bsm" onclick="editOrder(${o.id})" style="font-size:12px;padding:6px 12px">✏️ Editar</button>
             <button class="btn bsm" onclick="confirmDeleteOrder(${o.id},'${(o.address||o.name||'este pedido').replace(/'/g,'&#39;')}')" style="font-size:15px;padding:5px 10px;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;cursor:pointer" title="Eliminar pedido">🗑️</button>
           </div>
@@ -1386,7 +1389,7 @@ function motoHTML(){
     if(!isFlex && !isPickup && o.dStatus!=='cancelado') return;
     if(o.noEnvio) return;
     if(o.noMoto) return;
-    const isFlex=(o.orderNum||'').toString().trim().toUpperCase()==='FLEX';
+    const isFlex=(o.orderNum||'').toString().trim().toUpperCase().startsWith('FLEX');
     if(isFlex) return;
     const dt=parseArgDate(o.date);
     if(dt.getFullYear()===yr&&dt.getMonth()===mo){
