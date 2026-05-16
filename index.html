@@ -1839,9 +1839,23 @@ function updAddrMapsBtn(){
 function updOrderNumUI(){
   const num=(S().orderNum||'').trim();
   const isText=num!==''&&isNaN(Number(num));
+  const isFlexNow=num.toUpperCase().startsWith('FLEX');
+  // If FLEX status changed, do a full render so sections show/hide correctly
+  const wasFlexBefore=S()._wasFlex||false;
+  if(isFlexNow!==wasFlexBefore){
+    S()._wasFlex=isFlexNow;
+    render();
+    requestAnimationFrame(()=>{
+      const inp=document.querySelector('input[placeholder="Ej: 001"]');
+      if(inp){inp.focus();const l=inp.value.length;inp.setSelectionRange(l,l);}
+    });
+    return;
+  }
+  S()._wasFlex=isFlexNow;
+  // Otherwise update just the sub-elements in place
   const el=document.getElementById('moto-no-cobra-block');
   if(!el) return;
-  if(isText){
+  if(isText&&!isFlexNow){
     el.innerHTML=`
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="motoNoCobra" ${S().motoNoCobra?'checked':''} onchange="S().motoNoCobra=this.checked" style="width:18px;height:18px;accent-color:#3b82f6;cursor:pointer">
@@ -1853,8 +1867,7 @@ function updOrderNumUI(){
       </div>`;
   } else {
     el.innerHTML='';
-    S().motoNoCobra=false;
-    S().noEnvio=false;
+    if(!isText){S().motoNoCobra=false;S().noEnvio=false;}
   }
   const addrLbl=document.getElementById('addr-lbl');
   const addrInp=document.getElementById('addr-inp');
