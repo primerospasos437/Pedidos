@@ -134,6 +134,7 @@ textarea{resize:vertical;min-height:58px}
   body>*:not(#pra){display:none !important}
   #pra{display:block !important}
   @page{size:110mm 170mm;margin:10mm 5mm 5mm 5mm}
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
 }
 .tkt{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.4;color:black;padding:2mm 2mm;border:3pt solid magenta;border-radius:2mm}
 .tkt-h{font-size:13pt;font-weight:bold;color:#0891b2;text-align:center}
@@ -742,6 +743,30 @@ function sendWA(){
   const url='https://wa.me/'+(phone?'549'+phone:'')+'?text='+encodeURIComponent(msg);
   window.open(url,'_blank');
 }
+function previewOrderById(id){
+  const o=db.orders.find(x=>x.id===id);
+  if(!o){alert('Pedido no encontrado');return;}
+  const html=buildTicketHTML(o);
+  const ov=document.createElement('div');
+  ov.id='preview-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+  ov.innerHTML=`
+    <div style="background:white;border-radius:14px;width:100%;max-width:900px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #eee;gap:8px">
+        <span style="font-weight:700;font-size:16px;color:#555">👁️ Vista previa del ticket</span>
+        <div style="display:flex;gap:8px">
+          <button onclick="printO(db.orders.find(x=>x.id===${id}))" style="background:#0891b2;color:white;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-family:inherit">🖨️ Imprimir</button>
+          <button onclick="document.getElementById('preview-modal').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:20px;line-height:1">✕</button>
+        </div>
+      </div>
+      <div style="padding:20px;overflow-y:auto;max-height:80vh;display:flex;justify-content:center">
+        <div style="width:min(100%,800px)">${html}</div>
+      </div>
+    </div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+}
+
 function previewOrder(){
   const s=S();
   const zz=getZZ();
@@ -762,13 +787,13 @@ function previewOrder(){
   ov.id='preview-modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
   ov.innerHTML=`
-    <div style="background:white;border-radius:14px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="background:white;border-radius:14px;width:100%;max-width:900px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #eee;gap:8px">
         <span style="font-weight:700;font-size:16px;color:#555">👁️ Vista previa del ticket</span>
         <button onclick="document.getElementById('preview-modal').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:20px;line-height:1">✕</button>
       </div>
-      <div style="padding:20px;overflow-y:auto;max-height:75vh">
-        <div style="transform:scale(1);transform-origin:top center;width:100%">
+      <div style="padding:20px;overflow-y:auto;max-height:80vh;display:flex;justify-content:center">
+        <div style="width:min(100%,800px)">
           ${html}
         </div>
       </div>
@@ -878,6 +903,7 @@ function appHTML(){
 // ── ORDER TAB ─────────────────────────────────
 function orderHTML(){
   const zz=getZZ(),sub=cSub(),ship=cShip(),tot=cTot();
+  const isFlexOrder=(S().orderNum?.trim()||'').toUpperCase().startsWith('FLEX');
   const subTabs=`<div class="otabs">
     <div class="otab pres-tab ${presTab?'active':''}" onclick="presTab=true;render()" style="background:${presTab?'white':'#fff8e1'};color:#92400e;border-color:#f59e0b">📄 Presupuesto</div>
     ${slots.map((f,i)=>`<div class="otab ${!presTab&&i===si?'active':''}" onclick="presTab=false;switchSlot(${i})">
@@ -924,7 +950,15 @@ function orderHTML(){
   <input type="text" value="${S().name}" placeholder="Nombre del cliente" oninput="S().name=this.value">
 </div>
 <div class="card">
-  <div class="ct">Artículos</div>
+  ${isFlexOrder?`
+    <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">🟣</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#5b21b6">Pedido FLEX</div>
+        <div style="font-size:12px;color:#7c3aed;margin-top:2px">Envío externo — no suma artículos, zona ni pago a la moto</div>
+      </div>
+    </div>
+  `:`<div class="ct">Artículos</div>
   <table class="itable">
     <thead><tr>
       <th style="width:52px">Cant</th><th>Descripción</th>
@@ -939,9 +973,9 @@ function orderHTML(){
       <td><button class="bx" onclick="remI(${i})">✕</button></td>
     </tr>`).join('')}</tbody>
   </table>
-  <button class="btn bs bsm" onclick="addI()">+ Agregar artículo</button>
+  <button class="btn bs bsm" onclick="addI()">+ Agregar artículo</button>`}
 </div>
-<div class="g2">
+${!isFlexOrder?`<div class="g2">
   <div class="card">
     <div class="ct">Zona de envío</div>
     <select onchange="onZC(this.value)">
@@ -961,7 +995,6 @@ function orderHTML(){
 </div>
 <div class="card">
   <div class="ct">Tipo de entrega y pago</div>
-
   <!-- DOMICILIO -->
   <div class="ptog" onclick="setDelivType('domicilio')" style="margin-bottom:8px;background:${S().delivType==='domicilio'||!S().delivType?'#fff9e6':'white'};border-color:${S().delivType==='domicilio'||!S().delivType?'#f59e0b':'var(--pki)'}">
     <input type="radio" name="dt" ${S().delivType!=='retiro-local'?'checked':''} onclick="event.stopPropagation();setDelivType('domicilio')" style="width:17px;height:17px;accent-color:var(--pk);cursor:pointer;flex-shrink:0">
@@ -1040,6 +1073,7 @@ function orderHTML(){
 
   ${S().paid?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:700;color:#15803d;margin-top:6px">✅ PEDIDO PAGADO — $${fmt(cTot())}</div>`:''}
 </div>
+`:''}
 <div class="card">
   <div class="ct">Observaciones</div>
   <textarea oninput="S().observations=this.value">${S().observations}</textarea>
@@ -1207,6 +1241,7 @@ function deliveryHTML(){
             ${isFlex?'🟣 FLEX — no suma a moto':isPickup?'🏪 Retira el cliente — no suma a moto':o.noEnvio?'📦 No envío — no suma a moto':o.noMoto?'🔀 No Moto — no suma a cuenta':`🛵 A pagar a moto: <strong style="font-size:13px">$${fmt(motoAmt)}</strong>`}
           </div>
           <button onclick="printO(db.orders.find(x=>x.id===${o.id}))" title="Imprimir pedido" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:17px;line-height:1">🖨️</button>
+          <button onclick="previewOrderById(${o.id})" title="Vista previa" style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:17px;line-height:1">👁️</button>
           <div style="display:flex;gap:6px;align-items:center">
             ${!pagado&&abonaNum===0&&est!=='cancelado'&&total>0?`<span style="font-size:13px;font-weight:700;padding:3px 9px;border-radius:8px;background:#e0e7ff;color:#3730a3">⏳ Pendiente de cobro</span>`:''}
             <button class="btn bs bsm" onclick="editOrder(${o.id})" style="font-size:12px;padding:6px 12px">✏️ Editar</button>
